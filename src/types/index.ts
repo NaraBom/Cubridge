@@ -33,7 +33,7 @@ export interface DashboardStats {
   today_consumption: number;
 }
 
-export const CATEGORIES = ['채소', '과일', '육류', '생선', '곡물', '기타'] as const;
+export const CATEGORIES = ['채소', '과일', '육류', '생선', '곡물', '밥', '기타'] as const;
 export type Category = typeof CATEGORIES[number];
 
 export const MEAL_TIMES = {
