@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Cube, CATEGORIES, getStockStatus } from '@/types';
-import { getCubes } from '@/lib/storage';
+import { getCubes, deleteCube } from '@/lib/storage';
 import CubeRow from '@/components/CubeRow';
-import { Plus, Search } from 'lucide-react';
+import ConfirmModal from '@/components/ConfirmModal';
+import { Plus, Search, Download, FileSpreadsheet, Trash2 } from 'lucide-react';
 
 const STATUS_FILTERS = [
   { value: 'all',     label: '전체' },
@@ -18,6 +19,7 @@ export default function CubesPage() {
   const [cubes, setCubes] = useState<Cube[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showDeleteZero, setShowDeleteZero] = useState(false);
 
   useEffect(() => {
     setCubes(getCubes());
@@ -25,6 +27,139 @@ export default function CubesPage() {
 
   function refresh() {
     setCubes(getCubes());
+  }
+
+  const zeroCubes = cubes.filter((c) => c.quantity === 0);
+
+  function deleteAllZero() {
+    zeroCubes.forEach((c) => deleteCube(c.id));
+    setCubes(getCubes());
+    setShowDeleteZero(false);
+  }
+
+  async function exportExcel() {
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('큐브 목록');
+
+    // 열 정의
+    ws.columns = [
+      { header: '카테고리', key: 'category', width: 12 },
+      { header: '이름',     key: 'name',     width: 16 },
+      { header: 'g/개',     key: 'grams',    width: 8  },
+      { header: '수량',     key: 'quantity', width: 8  },
+      { header: '유통기한', key: 'expiry',   width: 14 },
+      { header: '상태',     key: 'status',   width: 8  },
+      { header: '메모',     key: 'notes',    width: 24 },
+    ];
+
+    // 헤더 스타일
+    const headerStyle: ExcelJS.Style = {
+      font: { bold: true, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8734A' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+      border: {
+        top:    { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left:   { style: 'thin', color: { argb: 'FF000000' } },
+        right:  { style: 'thin', color: { argb: 'FF000000' } },
+      },
+    };
+    ws.getRow(1).eachCell((cell) => { cell.style = headerStyle; });
+    ws.getRow(1).height = 22;
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+
+    // 카테고리별 정렬 후 행 추가
+    const STATUS_LABEL: Record<string, string> = { danger: '부족', warning: '주의', ok: '충분' };
+    const STATUS_COLOR: Record<string, string> = { danger: 'FFDC2626', warning: 'FFEA580C', ok: 'FF16A34A' };
+    const sorted = [...cubes].sort((a, b) => a.category.localeCompare(b.category));
+
+    sorted.forEach((c) => {
+      const status = getStockStatus(c.quantity, c.warning_threshold, c.danger_threshold);
+      ws.addRow({
+        category: c.category,
+        name:     c.name,
+        grams:    c.grams_per_cube,
+        quantity: c.quantity,
+        expiry:   c.expiry_date ?? '',
+        status:   STATUS_LABEL[status],
+        notes:    c.notes ?? '',
+      });
+    });
+
+    // 셀 스타일 (데이터 행)
+    const cellBorder: ExcelJS.Borders = {
+      top:    { style: 'thin', color: { argb: 'FF000000' } },
+      bottom: { style: 'thin', color: { argb: 'FF000000' } },
+      left:   { style: 'thin', color: { argb: 'FF000000' } },
+      right:  { style: 'thin', color: { argb: 'FF000000' } },
+    };
+    ws.eachRow((row, rowNum) => {
+      if (rowNum === 1) return;
+      row.eachCell((cell, colNum) => {
+        cell.border = cellBorder;
+        cell.alignment = { vertical: 'middle', horizontal: colNum <= 2 ? 'left' : 'center' };
+        // 상태 셀 색상
+        if (colNum === 6) {
+          const s = Object.entries(STATUS_LABEL).find(([, v]) => v === cell.value)?.[0];
+          if (s) cell.font = { color: { argb: STATUS_COLOR[s] }, bold: true };
+        }
+      });
+      row.height = 18;
+    });
+
+    // 카테고리 셀 병합
+    let mergeStart = 2;
+    let currentCat = sorted[0]?.category;
+    sorted.forEach((c, i) => {
+      const rowNum = i + 2;
+      const isLast = i === sorted.length - 1;
+      if (c.category !== currentCat || isLast) {
+        const mergeEnd = isLast && c.category === currentCat ? rowNum : rowNum - 1;
+        if (mergeEnd > mergeStart) {
+          ws.mergeCells(mergeStart, 1, mergeEnd, 1);
+          const mergedCell = ws.getCell(mergeStart, 1);
+          mergedCell.alignment = { vertical: 'middle', horizontal: 'center' };
+          mergedCell.border = cellBorder;
+        }
+        mergeStart = rowNum;
+        currentCat = c.category;
+      }
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `큐브목록_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportCSV() {
+    const headers = ['이름', '카테고리', '수량(개)', '상태', '유통기한', 'g/개', '메모'];
+    const rows = cubes.map((c) => {
+      const status = getStockStatus(c.quantity, c.warning_threshold, c.danger_threshold);
+      const statusLabel = status === 'danger' ? '부족' : status === 'warning' ? '주의' : '충분';
+      return [
+        c.name,
+        c.category,
+        c.quantity,
+        statusLabel,
+        c.expiry_date ?? '',
+        c.grams_per_cube,
+        c.notes ?? '',
+      ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',');
+    });
+    const csv = '﻿' + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `큐브목록_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const filtered = cubes.filter((c) => {
@@ -43,13 +178,38 @@ export default function CubesPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">큐브 목록</h1>
-        <Link
-          href="/cubes/new"
-          className="flex items-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-xl hover:opacity-90 transition text-sm font-medium"
-        >
-          <Plus size={16} />
-          큐브 추가
-        </Link>
+        <div className="flex items-center gap-2">
+          {zeroCubes.length > 0 && (
+            <button
+              onClick={() => setShowDeleteZero(true)}
+              className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-500 px-4 py-2 rounded-xl hover:bg-red-100 transition text-sm font-medium cursor-pointer"
+            >
+              <Trash2 size={16} />
+              0개 큐브 삭제 ({zeroCubes.length})
+            </button>
+          )}
+          <button
+            onClick={exportExcel}
+            className="flex items-center gap-2 bg-white border border-[var(--border)] text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-50 transition text-sm font-medium cursor-pointer"
+          >
+            <FileSpreadsheet size={16} />
+            Excel
+          </button>
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-2 bg-white border border-[var(--border)] text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-50 transition text-sm font-medium cursor-pointer"
+          >
+            <Download size={16} />
+            CSV
+          </button>
+          <Link
+            href="/cubes/new"
+            className="flex items-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-xl hover:opacity-90 transition text-sm font-medium"
+          >
+            <Plus size={16} />
+            큐브 추가
+          </Link>
+        </div>
       </div>
 
       {/* 검색 & 상태 필터 */}
@@ -108,6 +268,17 @@ export default function CubesPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {showDeleteZero && (
+        <ConfirmModal
+          title="0개 큐브 일괄 삭제"
+          message={`수량이 0개인 큐브 ${zeroCubes.length}종을 모두 삭제할까요?`}
+          confirmLabel="삭제"
+          danger
+          onConfirm={deleteAllZero}
+          onCancel={() => setShowDeleteZero(false)}
+        />
       )}
     </div>
   );

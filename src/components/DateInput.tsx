@@ -27,8 +27,7 @@ export default function DateInput({ value, onChange, onWarnChange, className = '
     setLocal(parse(value));
   }, [value]);
 
-  function update(next: { yyyy: string; mm: string; dd: string }) {
-    setLocal(next);
+  function validate(next: { yyyy: string; mm: string; dd: string }) {
     const { yyyy, mm, dd } = next;
     if (yyyy.length === 4 && mm.length >= 1 && dd.length >= 1) {
       const dateStr = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
@@ -44,6 +43,19 @@ export default function DateInput({ value, onChange, onWarnChange, className = '
         onWarnChange?.(false);
         onChange(dateStr);
       }
+    } else if (placeholder && !yyyy && !mm && !dd) {
+      setWarn(false);
+      onWarnChange?.(false);
+      onChange(null);
+    }
+  }
+
+  function update(next: { yyyy: string; mm: string; dd: string }, finalField = false) {
+    setLocal(next);
+    const { yyyy, mm, dd } = next;
+    // DD 필드가 2자리 완성되었거나, blur(finalField)일 때만 검증
+    if (finalField || (yyyy.length === 4 && mm.length === 2 && dd.length === 2)) {
+      validate(next);
     } else if (placeholder && !yyyy && !mm && !dd) {
       setWarn(false);
       onWarnChange?.(false);
@@ -71,6 +83,7 @@ export default function DateInput({ value, onChange, onWarnChange, className = '
             update({ ...local, yyyy: v });
             if (v.length === 4) setTimeout(() => monthRef.current?.focus(), 0);
           }}
+          onBlur={() => update(local, true)}
           className={`w-14 ${inputClass}`}
         />
         <span className="text-gray-400 text-sm">-</span>
@@ -87,6 +100,7 @@ export default function DateInput({ value, onChange, onWarnChange, className = '
             update({ ...local, mm: v });
             if (v.length === 2) setTimeout(() => dayRef.current?.focus(), 0);
           }}
+          onBlur={() => update(local, true)}
           className={`w-10 ${inputClass}`}
         />
         <span className="text-gray-400 text-sm">-</span>
@@ -100,8 +114,10 @@ export default function DateInput({ value, onChange, onWarnChange, className = '
           onFocus={(e) => e.target.select()}
           onChange={(e) => {
             const v = e.target.value.replace(/\D/g, '');
-            update({ ...local, dd: v });
+            const next = { ...local, dd: v };
+            update(next, v.length === 2);
           }}
+          onBlur={() => update(local, true)}
           className={`w-10 ${inputClass}`}
         />
       </div>

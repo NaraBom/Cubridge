@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { Cube, ConsumptionLog } from '@/types';
-import { getCubes, getLogs, addLog, deleteLog } from '@/lib/storage';
+import { getCubes, getLogs, addLog, deleteLog, deleteCube } from '@/lib/storage';
 import { Plus, Trash2, UtensilsCrossed, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
+import DateInput from '@/components/DateInput';
 
 type MealTime = ConsumptionLog['meal_time'];
 
@@ -36,12 +37,12 @@ export default function LogsPage() {
   const [selectedDate, setSelectedDate] = useState<string>(toDateKey(today));
 
   const [showForm, setShowForm] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<ConsumptionLog | null>(null);
-  const [cubeId, setCubeId] = useState('');
-  const [quantity, setQuantity] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<(ConsumptionLog & { _ids: string[] }) | null>(null);
+  const [depleted, setDepleted] = useState<Cube | null>(null);
   const [formDate, setFormDate] = useState(toDateKey(today));
   const [formTime, setFormTime] = useState('12:00');
   const [notes, setNotes] = useState('');
+  const [entries, setEntries] = useState<{ cubeId: string; quantity: number }[]>([{ cubeId: '', quantity: 1 }]);
 
   useEffect(() => {
     setCubes(getCubes());
@@ -77,40 +78,76 @@ export default function LogsPage() {
   function openForm() {
     setFormDate(selectedDate);
     setFormTime('12:00');
+    setNotes('');
+    setEntries([{ cubeId: '', quantity: 1 }]);
     setShowForm(true);
   }
 
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    const cube = cubes.find((c) => c.id === cubeId);
-    if (!cube) return;
-    const loggedAt = new Date(`${formDate}T${formTime}:00`).toISOString();
-    // meal_time 추론 (시간 기반)
+
     const hour = parseInt(formTime.split(':')[0]);
     let mealTime: MealTime = 'snack';
     if (hour >= 6 && hour < 10) mealTime = 'breakfast';
     else if (hour >= 11 && hour < 14) mealTime = 'lunch';
     else if (hour >= 17 && hour < 21) mealTime = 'dinner';
+    const loggedAt = new Date(`${formDate}T${formTime}:00`).toISOString();
 
-    addLog({ cube_id: cubeId, cube_name: cube.name, quantity, meal_time: mealTime, logged_at: loggedAt, notes: notes || null });
+    // 재고 검증 (전체 먼저)
+    for (const entry of entries) {
+      if (!entry.cubeId) continue;
+      const cube = cubes.find((c) => c.id === entry.cubeId);
+      if (!cube) continue;
+      if (entry.quantity > cube.quantity) {
+        alert(`재고가 부족합니다.\n[${cube.name}] 재고: ${cube.quantity}개 / 입력: ${entry.quantity}개`);
+        return;
+      }
+    }
+
+    let firstDepleted: Cube | null = null;
+    for (const entry of entries) {
+      if (!entry.cubeId) continue;
+      const cube = cubes.find((c) => c.id === entry.cubeId);
+      if (!cube) continue;
+      addLog({ cube_id: entry.cubeId, cube_name: cube.name, quantity: entry.quantity, meal_time: mealTime, logged_at: loggedAt, notes: notes || null });
+      // addLog이 스토리지를 업데이트하므로 최신 수량을 직접 조회
+      const updatedCube = getCubes().find((c) => c.id === entry.cubeId);
+      if (!firstDepleted && updatedCube && updatedCube.quantity === 0) firstDepleted = updatedCube;
+    }
+
     setLogs(getLogs());
     setCubes(getCubes());
     setShowForm(false);
-    setCubeId('');
-    setQuantity(1);
+    setEntries([{ cubeId: '', quantity: 1 }]);
     setNotes('');
+
+    if (firstDepleted) setDepleted(firstDepleted);
   }
 
   function handleDelete() {
     if (!deleteTarget) return;
-    deleteLog(deleteTarget.id);
+    deleteTarget._ids.forEach((id) => deleteLog(id));
     setLogs(getLogs());
     setDeleteTarget(null);
   }
 
-  const selectedLogs = (logsByDate[selectedDate] ?? []).sort(
-    (a, b) => new Date(a.logged_at).getTime() - new Date(b.logged_at).getTime()
-  );
+  const selectedLogs = (() => {
+    const sorted = (logsByDate[selectedDate] ?? []).sort(
+      (a, b) => new Date(a.logged_at).getTime() - new Date(b.logged_at).getTime()
+    );
+    const merged: (ConsumptionLog & { _ids: string[] })[] = [];
+    for (const log of sorted) {
+      const key = `${log.logged_at}__${log.cube_name}`;
+      const existing = merged.find(m => `${m.logged_at}__${m.cube_name}` === key);
+      if (existing) {
+        existing.quantity += log.quantity;
+        existing._ids.push(log.id);
+      } else {
+        merged.push({ ...log, _ids: [log.id] });
+      }
+    }
+    return merged;
+  })();
   const selectedDateLabel = new Date(selectedDate + 'T00:00:00').toLocaleDateString('ko-KR', {
     month: 'long', day: 'numeric', weekday: 'short',
   });
@@ -265,10 +302,11 @@ export default function LogsPage() {
 
       {/* 기록 추가 모달 */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/30 z-50 overflow-y-auto p-4">
           <form
             onSubmit={handleAdd}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4"
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 flex flex-col gap-4 mx-auto my-auto overflow-hidden"
+            style={{ marginTop: 'max(1rem, 10vh)', marginBottom: 'max(1rem, 10vh)' }}
           >
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-gray-800">소비 기록 추가</h2>
@@ -281,11 +319,10 @@ export default function LogsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-500">날짜</label>
-                <input
-                  type="date"
+                <DateInput
                   value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                  className="input"
+                  onChange={(v) => setFormDate(v ?? toDateKey(today))}
+                  placeholder={false}
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -294,60 +331,97 @@ export default function LogsPage() {
                   type="time"
                   value={formTime}
                   onChange={(e) => setFormTime(e.target.value)}
-                  className="input"
+                  className="input w-full"
                 />
               </div>
             </div>
 
-            {/* 큐브 선택 */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-500">큐브 선택 *</label>
-              <select required value={cubeId} onChange={(e) => setCubeId(e.target.value)} className="input">
-                <option value="">선택하세요</option>
-                {cubes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name} (재고: {c.quantity}개)</option>
-                ))}
-              </select>
-            </div>
-
-            {/* 수량 */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-500">수량 *</label>
-              <div className="flex items-center gap-3">
+            {/* 큐브 항목 목록 */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium text-gray-500">큐브 *</label>
+              {entries.map((entry, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <select
+                    required
+                    value={entry.cubeId}
+                    onChange={(e) => {
+                      const next = [...entries];
+                      next[idx] = { ...next[idx], cubeId: e.target.value };
+                      setEntries(next);
+                    }}
+                    className="input min-w-0 flex-1"
+                    style={{ width: 0 }}
+                  >
+                    <option value="">큐브 선택</option>
+                    {cubes.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.quantity}개)</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = [...entries];
+                      next[idx] = { ...next[idx], quantity: Math.max(1, next[idx].quantity - 1) };
+                      setEntries(next);
+                    }}
+                    className="w-8 h-8 rounded-full border border-[var(--border)] flex items-center justify-center text-base hover:bg-gray-50 transition flex-shrink-0"
+                  >−</button>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    max={10}
+                    value={entry.quantity}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const next = [...entries];
+                      next[idx] = { ...next[idx], quantity: Math.min(10, Math.max(1, Number(e.target.value))) };
+                      setEntries(next);
+                    }}
+                    className="input text-center flex-shrink-0"
+                    style={{ width: '48px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = [...entries];
+                      next[idx] = { ...next[idx], quantity: Math.min(10, next[idx].quantity + 1) };
+                      setEntries(next);
+                    }}
+                    className="w-8 h-8 rounded-full bg-[var(--primary)] text-white flex items-center justify-center text-base hover:opacity-90 transition flex-shrink-0"
+                  >+</button>
+                  {entries.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setEntries(entries.filter((_, i) => i !== idx))}
+                      className="w-7 h-7 rounded-full hover:bg-red-50 text-gray-300 hover:text-red-400 flex items-center justify-center transition flex-shrink-0"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {entries.length < 10 && (
                 <button
                   type="button"
-                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                  className="w-9 h-9 rounded-full border border-[var(--border)] flex items-center justify-center text-lg hover:bg-gray-50 transition"
+                  onClick={() => setEntries([...entries, { cubeId: '', quantity: 1 }])}
+                  className="flex items-center gap-1.5 text-xs text-[var(--primary)] hover:underline self-start mt-0.5"
                 >
-                  −
+                  <Plus size={13} />
+                  큐브 추가 ({entries.length}/10)
                 </button>
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  value={quantity}
-                  onChange={(e) => setQuantity(Number(e.target.value))}
-                  className="input text-center w-16"
-                />
-                <button
-                  type="button"
-                  onClick={() => setQuantity(q => q + 1)}
-                  className="w-9 h-9 rounded-full bg-[var(--primary)] text-white flex items-center justify-center text-lg hover:opacity-90 transition"
-                >
-                  +
-                </button>
-              </div>
+              )}
             </div>
 
             {/* 메모 */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-500">메모 (선택)</label>
-              <input
-                type="text"
+              <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="예: 잘 먹었어요"
-                className="input"
+                rows={3}
+                className="input w-full resize-none"
               />
             </div>
 
@@ -375,9 +449,24 @@ export default function LogsPage() {
         />
       )}
 
+      {depleted && (
+        <ConfirmModal
+          title="🎉 큐브 소진 완료!"
+          message={`'${depleted.name}' 큐브가 모두 소진되었습니다.\n큐브 목록에서 삭제할까요?`}
+          confirmLabel="삭제"
+          cancelLabel="유지"
+          danger
+          onConfirm={() => {
+            deleteCube(depleted.id);
+            setCubes(getCubes());
+            setDepleted(null);
+          }}
+          onCancel={() => setDepleted(null)}
+        />
+      )}
+
       <style jsx>{`
         .input {
-          width: 100%;
           padding: 9px 12px;
           border-radius: 10px;
           border: 1.5px solid var(--border);
