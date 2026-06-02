@@ -34,10 +34,10 @@ export default function Sidebar() {
 
   return (
     <aside className="hidden md:flex flex-col w-56 h-screen sticky top-0 bg-white border-r border-[var(--border)] py-6 px-3 overflow-y-auto">
-      <div className="mb-8 px-3">
+      <Link href="/" className="mb-8 px-3 flex items-center hover:opacity-80 transition">
         <span className="text-2xl">🍼</span>
         <span className="ml-2 font-bold text-lg text-[var(--primary)]">BabyStock</span>
-      </div>
+      </Link>
 
       <nav className="flex flex-col gap-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => navLink(href, label, Icon))}

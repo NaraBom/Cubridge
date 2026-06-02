@@ -1,9 +1,9 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Cube, CATEGORIES, getStockStatus } from '@/types';
-import { getCubes, deleteCube } from '@/lib/storage';
+import { getCubes, deleteCube, getSettings } from '@/lib/storage';
 import CubeRow from '@/components/CubeRow';
 import ConfirmModal from '@/components/ConfirmModal';
 import { Plus, Search, Download, FileSpreadsheet, Trash2 } from 'lucide-react';
@@ -20,6 +20,7 @@ export default function CubesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showDeleteZero, setShowDeleteZero] = useState(false);
+  const expiryWarningDays = getSettings().expiryWarningDays;
 
   useEffect(() => {
     setCubes(getCubes());
@@ -29,7 +30,7 @@ export default function CubesPage() {
     setCubes(getCubes());
   }
 
-  const zeroCubes = cubes.filter((c) => c.quantity === 0);
+  const zeroCubes = useMemo(() => cubes.filter((c) => c.quantity === 0), [cubes]);
 
   function deleteAllZero() {
     zeroCubes.forEach((c) => deleteCube(c.id));
@@ -162,17 +163,17 @@ export default function CubesPage() {
     URL.revokeObjectURL(url);
   }
 
-  const filtered = cubes.filter((c) => {
+  const filtered = useMemo(() => cubes.filter((c) => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase());
     const status = getStockStatus(c.quantity, c.warning_threshold, c.danger_threshold);
     const matchStatus = statusFilter === 'all' || status === statusFilter;
     return matchSearch && matchStatus;
-  });
+  }), [cubes, search, statusFilter]);
 
   // 카테고리별로 그룹화 (큐브가 있는 카테고리만)
-  const groups = CATEGORIES
+  const groups = useMemo(() => CATEGORIES
     .map((cat) => ({ cat, items: filtered.filter((c) => c.category === cat) }))
-    .filter(({ items }) => items.length > 0);
+    .filter(({ items }) => items.length > 0), [filtered]);
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -262,7 +263,7 @@ export default function CubesPage() {
               {/* 큐브 행 목록 */}
               <div className="divide-y divide-gray-50">
                 {items.map((cube) => (
-                  <CubeRow key={cube.id} cube={cube} onUpdate={refresh} onDelete={refresh} />
+                  <CubeRow key={cube.id} cube={cube} expiryWarningDays={expiryWarningDays} onUpdate={refresh} onDelete={refresh} />
                 ))}
               </div>
             </div>

@@ -14,6 +14,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [pushStatus, setPushStatus] = useState<'default' | 'granted' | 'denied'>('default');
   const [confirmType, setConfirmType] = useState<ConfirmType>(null);
+  const [pushError, setPushError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<DraftKey, string>>(() => {
     const s = getSettings();
     return {
@@ -74,13 +75,14 @@ export default function SettingsPage() {
 
   async function handlePushToggle() {
     if (!('Notification' in window)) {
-      alert('이 브라우저는 푸시 알림을 지원하지 않아요.');
+      setPushError('이 브라우저는 푸시 알림을 지원하지 않아요.');
       return;
     }
     if (pushStatus === 'denied') {
-      alert('브라우저 설정에서 알림 권한을 직접 허용해 주세요.\n(주소창 자물쇠 아이콘 → 알림 → 허용)');
+      setPushError('브라우저 설정에서 알림 권한을 직접 허용해 주세요. (주소창 자물쇠 아이콘 → 알림 → 허용)');
       return;
     }
+    setPushError(null);
     if (pushStatus === 'granted') {
       updateSetting('pushNotification', false);
       return;
@@ -222,6 +224,9 @@ export default function SettingsPage() {
             />
           </button>
         </SettingRow>
+        {pushError && (
+          <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mx-1">{pushError}</p>
+        )}
       </Section>
 
       {/* 데이터 관리 */}

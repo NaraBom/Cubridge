@@ -1,14 +1,15 @@
-'use client';
+﻿'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { Cube, getStockStatus } from '@/types';
 import { Minus, Plus, Trash2 } from 'lucide-react';
-import { updateCube, deleteCube, getSettings } from '@/lib/storage';
+import { updateCube, deleteCube } from '@/lib/storage';
 import ConfirmModal from '@/components/ConfirmModal';
 
 interface Props {
   cube: Cube;
+  expiryWarningDays?: number;
   onUpdate?: (cube: Cube) => void;
   onDelete?: (id: string) => void;
 }
@@ -19,11 +20,10 @@ const STATUS_CONFIG = {
   danger:  { bar: 'bg-red-400',    text: 'text-red-500',    label: '부족' },
 };
 
-export default function CubeRow({ cube, onUpdate, onDelete }: Props) {
+export default function CubeRow({ cube, expiryWarningDays = 7, onUpdate, onDelete }: Props) {
   const status = getStockStatus(cube.quantity, cube.warning_threshold, cube.danger_threshold);
   const { bar, text, label } = STATUS_CONFIG[status];
 
-  const { expiryWarningDays } = getSettings();
   const msUntilExpiry = cube.expiry_date
     ? new Date(cube.expiry_date).getTime() - Date.now()
     : null;
@@ -259,14 +259,19 @@ export default function CubeRow({ cube, onUpdate, onDelete }: Props) {
         {quantity === 0 ? (
           <span className="text-xs text-gray-300">-</span>
         ) : (
-          Array.from({ length: quantity }).map((_, i) => (
-            <span key={i} className="flex items-center gap-0.5">
-              {i > 0 && i % 10 === 0 && (
-                <span className="text-xs leading-none text-gray-400 mx-0.5">/</span>
-              )}
-              <span className="leading-none" style={{ fontSize: '20px', color: cube.color_tag }}>●</span>
-            </span>
-          ))
+          <>
+            {Array.from({ length: Math.min(quantity, 20) }).map((_, i) => (
+              <span key={i} className="flex items-center gap-0.5">
+                {i > 0 && i % 10 === 0 && (
+                  <span className="text-xs leading-none text-gray-400 mx-0.5">/</span>
+                )}
+                <span className="leading-none" style={{ fontSize: '20px', color: cube.color_tag }}>●</span>
+              </span>
+            ))}
+            {quantity > 20 && (
+              <span className="text-xs text-gray-400 ml-1">+{quantity - 20}</span>
+            )}
+          </>
         )}
       </div>
     </div>

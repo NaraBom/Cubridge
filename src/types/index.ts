@@ -3,6 +3,7 @@ export type StockStatus = 'ok' | 'warning' | 'danger';
 export interface Cube {
   id: string;
   name: string;
+  emoji: string;
   category: string;
   color_tag: string;
   quantity: number;
@@ -43,9 +44,22 @@ export const MEAL_TIMES = {
   snack: '간식',
 } as const;
 
+// 각 카테고리별 고유 이모티콘 (카테고리 간 중복 없음, Unicode 12.0 이하만 사용)
+export const CATEGORY_EMOJIS: Record<string, string[]> = {
+  채소: ['🥦', '🥕', '🌽', '🥬', '🍆', '🥒', '🍅', '🧅', '🧄', '🌿', '🍠', '🥑', '🥔', '🌱', '🍃', '🌵', '🎃', '🍀', '🌺', '🌻', '🌸', '🌼', '🌹', '🌷'],
+  과일: ['🍎', '🍌', '🍇', '🍓', '🍑', '🍒', '🍋', '🍊', '🍐', '🥝', '🍉', '🍈', '🍏', '🍍', '🥭', '🥥', '🍄', '🍦', '🍧', '🍭', '🍡', '🍮', '🍰', '🍬'],
+  육류: ['🍗', '🥩', '🍖', '🥚', '🐔', '🐷', '🐄', '🐑', '🦆', '🐇', '🥓', '🌭', '🍔', '🍳', '🐓'],
+  생선: ['🐟', '🦐', '🦑', '🦀', '🍣', '🐠', '🐡', '🦞', '🦪', '🐙', '🍤', '🦈', '🐬', '🐳', '🎣'],
+  곡물: ['🌾', '🥣', '🥖', '🌰', '🥐', '🍞', '🥨', '🥞', '🌮', '🌯', '🥙', '🥯', '🥜', '🍕', '🥪'],
+  밥:   ['🍚', '🍱', '🥘', '🍲', '🍛', '🍜', '🍝', '🥮', '🍘', '🍥', '🍙', '🍽', '🥄', '🥗', '🥫'],
+  기타: ['🧆', '🥛', '🧀', '🍯', '🧂', '☕', '🧃', '🥤', '🍼', '🧈', '🧁', '🍩', '🎂', '🍪', '🥧'],
+};
+
+export const FOOD_EMOJIS = Object.values(CATEGORY_EMOJIS).flat();
+
 export const COLOR_TAGS = [
-  '#E8734A', '#A8C97F', '#7BAFD4', '#F4C430',
-  '#C47AC0', '#E87D7D', '#5BBF8E', '#F0A06A',
+  '#E8734A', '#A8C97F', '#7BAFD4', '#F4C430', '#C47AC0',
+  '#E87D7D', '#5BBF8E', '#F0A06A', '#6B8E6B', '#A0785A',
 ] as const;
 
 export function getStockStatus(quantity: number, warningThreshold: number, dangerThreshold: number): StockStatus {

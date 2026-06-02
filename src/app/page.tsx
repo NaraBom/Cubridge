@@ -1,9 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Cube, ConsumptionLog, getStockStatus, MEAL_TIMES } from '@/types';
-import { getCubes, getLogs, getSampleCubes, addCube } from '@/lib/storage';
+import { getCubes, getLogs, getSampleCubes, addCube, getSettings } from '@/lib/storage';
 import CubeRow from '@/components/CubeRow';
 import { AlertCircle, Box, Plus } from 'lucide-react';
 
@@ -11,6 +11,7 @@ export default function DashboardPage() {
   const [cubes, setCubes] = useState<Cube[]>([]);
   const [logs, setLogs] = useState<ConsumptionLog[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const expiryWarningDays = getSettings().expiryWarningDays;
 
   useEffect(() => {
     const stored = getCubes();
@@ -74,7 +75,7 @@ export default function DashboardPage() {
           </div>
           <div className="bg-white rounded-2xl border border-[var(--border)] divide-y divide-gray-100">
             {alertCubes.map((cube) => (
-              <CubeRow key={cube.id} cube={cube} onUpdate={refresh} onDelete={refresh} />
+              <CubeRow key={cube.id} cube={cube} expiryWarningDays={expiryWarningDays} onUpdate={refresh} onDelete={refresh} />
             ))}
           </div>
         </section>
@@ -95,9 +96,16 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="bg-white rounded-2xl border border-[var(--border)] divide-y divide-gray-100">
-          {cubes.slice(0, 6).map((cube) => (
-            <CubeRow key={cube.id} cube={cube} onUpdate={refresh} onDelete={refresh} />
-          ))}
+          {[...cubes]
+            .sort((a, b) => {
+              const order = { danger: 0, warning: 1, ok: 2 };
+              return order[getStockStatus(a.quantity, a.warning_threshold, a.danger_threshold)] -
+                     order[getStockStatus(b.quantity, b.warning_threshold, b.danger_threshold)];
+            })
+            .slice(0, 6)
+            .map((cube) => (
+              <CubeRow key={cube.id} cube={cube} expiryWarningDays={expiryWarningDays} onUpdate={refresh} onDelete={refresh} />
+            ))}
         </div>
       </section>
 

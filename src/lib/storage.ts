@@ -113,8 +113,14 @@ export function addLog(log: Omit<ConsumptionLog, 'id'>): ConsumptionLog {
   return newLog;
 }
 
-export function deleteLog(id: string) {
-  saveLogs(getLogs().filter((l) => l.id !== id));
+export function deleteLog(id: string, restoreStock = false) {
+  const logs = getLogs();
+  const log = logs.find((l) => l.id === id);
+  if (restoreStock && log) {
+    const cube = getCubes().find((c) => c.id === log.cube_id);
+    if (cube) updateCube(cube.id, { quantity: cube.quantity + log.quantity });
+  }
+  saveLogs(logs.filter((l) => l.id !== id));
 }
 
 function daysFromNow(days: number): string {
@@ -125,10 +131,10 @@ function daysFromNow(days: number): string {
 
 export function getSampleCubes(): Omit<Cube, 'id' | 'created_at' | 'updated_at'>[] {
   return [
-    { name: '브로콜리', category: '채소', color_tag: '#A8C97F', quantity: 8, warning_threshold: 5, danger_threshold: 2, grams_per_cube: 30, expiry_date: daysFromNow(30), photo_url: null, notes: null },
-    { name: '당근', category: '채소', color_tag: '#F0A06A', quantity: 3, warning_threshold: 5, danger_threshold: 2, grams_per_cube: 30, expiry_date: daysFromNow(2), photo_url: null, notes: null },
-    { name: '소고기', category: '육류', color_tag: '#E87D7D', quantity: 1, warning_threshold: 4, danger_threshold: 2, grams_per_cube: 20, expiry_date: daysFromNow(-1), photo_url: null, notes: null },
-    { name: '고구마', category: '채소', color_tag: '#F4C430', quantity: 12, warning_threshold: 5, danger_threshold: 2, grams_per_cube: 35, expiry_date: daysFromNow(45), photo_url: null, notes: null },
-    { name: '닭가슴살', category: '육류', color_tag: '#7BAFD4', quantity: 6, warning_threshold: 4, danger_threshold: 2, grams_per_cube: 20, expiry_date: daysFromNow(7), photo_url: null, notes: null },
+    { name: '브로콜리', emoji: '🥦', category: '채소', color_tag: '#A8C97F', quantity: 8, warning_threshold: 5, danger_threshold: 2, grams_per_cube: 30, expiry_date: daysFromNow(30), photo_url: null, notes: null },
+    { name: '당근', emoji: '🥕', category: '채소', color_tag: '#F0A06A', quantity: 3, warning_threshold: 5, danger_threshold: 2, grams_per_cube: 30, expiry_date: daysFromNow(2), photo_url: null, notes: null },
+    { name: '소고기', emoji: '🥩', category: '육류', color_tag: '#E87D7D', quantity: 1, warning_threshold: 4, danger_threshold: 2, grams_per_cube: 20, expiry_date: daysFromNow(-1), photo_url: null, notes: null },
+    { name: '고구마', emoji: '🍠', category: '채소', color_tag: '#F4C430', quantity: 12, warning_threshold: 5, danger_threshold: 2, grams_per_cube: 35, expiry_date: daysFromNow(45), photo_url: null, notes: null },
+    { name: '닭가슴살', emoji: '🍗', category: '육류', color_tag: '#7BAFD4', quantity: 6, warning_threshold: 4, danger_threshold: 2, grams_per_cube: 20, expiry_date: daysFromNow(7), photo_url: null, notes: null },
   ];
 }

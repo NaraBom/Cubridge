@@ -32,7 +32,6 @@ export default function DateInput({ value, onChange, onWarnChange, className = '
     if (yyyy.length === 4 && mm.length >= 1 && dd.length >= 1) {
       const dateStr = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
       if (dateStr < todayStr) {
-        alert('오늘 이전 날짜는 저장할 수 없습니다.');
         const empty = { yyyy: '', mm: '', dd: '' };
         setLocal(empty);
         setWarn(false);
@@ -53,7 +52,6 @@ export default function DateInput({ value, onChange, onWarnChange, className = '
   function update(next: { yyyy: string; mm: string; dd: string }, finalField = false) {
     setLocal(next);
     const { yyyy, mm, dd } = next;
-    // DD 필드가 2자리 완성되었거나, blur(finalField)일 때만 검증
     if (finalField || (yyyy.length === 4 && mm.length === 2 && dd.length === 2)) {
       validate(next);
     } else if (placeholder && !yyyy && !mm && !dd) {

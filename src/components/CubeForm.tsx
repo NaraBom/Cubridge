@@ -38,8 +38,13 @@ export default function CubeForm({ cube }: Props) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  const thresholdError = form.warning_threshold <= form.danger_threshold
+    ? '주의 기준은 부족 기준보다 커야 합니다'
+    : null;
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (thresholdError) return;
     if (isEdit && cube) {
       updateCube(cube.id, form);
     } else {
@@ -150,12 +155,15 @@ export default function CubeForm({ cube }: Props) {
             <input type="number" min={0} value={form.quantity} onFocus={(e) => e.target.select()} onChange={(e) => set('quantity', Number(e.target.value))} className="input" />
           </Field>
           <Field label="주의 기준 (개)">
-            <input type="number" min={0} value={form.warning_threshold} onFocus={(e) => e.target.select()} onChange={(e) => set('warning_threshold', Number(e.target.value))} className="input" />
+            <input type="number" min={0} value={form.warning_threshold} onFocus={(e) => e.target.select()} onChange={(e) => set('warning_threshold', Number(e.target.value))} className={`input ${thresholdError ? 'border-red-400' : ''}`} />
           </Field>
           <Field label="부족 기준 (개)">
-            <input type="number" min={0} value={form.danger_threshold} onFocus={(e) => e.target.select()} onChange={(e) => set('danger_threshold', Number(e.target.value))} className="input" />
+            <input type="number" min={0} value={form.danger_threshold} onFocus={(e) => e.target.select()} onChange={(e) => set('danger_threshold', Number(e.target.value))} className={`input ${thresholdError ? 'border-red-400' : ''}`} />
           </Field>
         </div>
+        {thresholdError && (
+          <p className="text-xs text-red-500 -mt-2">{thresholdError}</p>
+        )}
 
         <Field label="1큐브당 용량 (g)">
           <input type="number" min={1} value={form.grams_per_cube} onFocus={(e) => e.target.select()} onChange={(e) => set('grams_per_cube', Number(e.target.value))} className="input" />
@@ -194,22 +202,6 @@ export default function CubeForm({ cube }: Props) {
           onCancel={() => setShowDeleteConfirm(false)}
         />
       )}
-
-      <style jsx>{`
-        .input {
-          width: 100%;
-          padding: 10px 14px;
-          border-radius: 12px;
-          border: 1.5px solid var(--border);
-          background: white;
-          font-size: 14px;
-          outline: none;
-          transition: border-color 0.15s;
-        }
-        .input:focus {
-          border-color: var(--primary);
-        }
-      `}</style>
     </div>
   );
 }

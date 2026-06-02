@@ -7,9 +7,11 @@ interface Props {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  extraLabel?: string;
   danger?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  onExtra?: () => void;
 }
 
 export default function ConfirmModal({
@@ -17,9 +19,11 @@ export default function ConfirmModal({
   message,
   confirmLabel = '확인',
   cancelLabel = '취소',
+  extraLabel,
   danger = false,
   onConfirm,
   onCancel,
+  onExtra,
 }: Props) {
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
@@ -31,21 +35,31 @@ export default function ConfirmModal({
           <h2 className="font-semibold text-gray-800 text-base">{title}</h2>
         </div>
         <p className="text-sm text-gray-500 leading-relaxed pl-1">{message}</p>
-        <div className="flex gap-2 mt-1">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition text-sm"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            onClick={onConfirm}
-            className={`flex-1 py-2.5 rounded-xl font-medium transition text-sm text-white ${
-              danger ? 'bg-red-500 hover:bg-red-600' : 'bg-[var(--primary)] hover:opacity-90'
-            }`}
-          >
-            {confirmLabel}
-          </button>
+        <div className="flex flex-col gap-2 mt-1">
+          {extraLabel && onExtra && (
+            <button
+              onClick={onExtra}
+              className="w-full py-2.5 bg-[var(--primary)] text-white rounded-xl font-medium hover:opacity-90 transition text-sm"
+            >
+              {extraLabel}
+            </button>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={onCancel}
+              className="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition text-sm"
+            >
+              {cancelLabel}
+            </button>
+            <button
+              onClick={onConfirm}
+              className={`flex-1 py-2.5 rounded-xl font-medium transition text-sm text-white ${
+                danger ? 'bg-red-500 hover:bg-red-600' : 'bg-[var(--primary)] hover:opacity-90'
+              }`}
+            >
+              {confirmLabel}
+            </button>
+          </div>
         </div>
       </div>
     </div>
