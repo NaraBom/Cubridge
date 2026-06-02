@@ -1,0 +1,113 @@
+'use client';
+
+import { useRef, useState, useEffect } from 'react';
+
+interface Props {
+  value: string | null;           // 'YYYY-MM-DD' 또는 null
+  onChange: (value: string | null) => void;
+  onWarnChange?: (warn: boolean) => void;
+  className?: string;
+  placeholder?: boolean;
+}
+
+const todayStr = new Date().toISOString().slice(0, 10);
+
+export default function DateInput({ value, onChange, onWarnChange, className = '', placeholder = true }: Props) {
+  const parse = (v: string | null) => {
+    const parts = v ? v.split('-') : ['', '', ''];
+    return { yyyy: parts[0] ?? '', mm: parts[1] ?? '', dd: parts[2] ?? '' };
+  };
+
+  const [local, setLocal] = useState(() => parse(value));
+  const [warn, setWarn] = useState(false);
+  const monthRef = useRef<HTMLInputElement>(null);
+  const dayRef   = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setLocal(parse(value));
+  }, [value]);
+
+  function update(next: { yyyy: string; mm: string; dd: string }) {
+    setLocal(next);
+    const { yyyy, mm, dd } = next;
+    if (yyyy.length === 4 && mm.length >= 1 && dd.length >= 1) {
+      const dateStr = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+      if (dateStr < todayStr) {
+        alert('오늘 이전 날짜는 저장할 수 없습니다.');
+        const empty = { yyyy: '', mm: '', dd: '' };
+        setLocal(empty);
+        setWarn(false);
+        onWarnChange?.(false);
+        onChange(null);
+      } else {
+        setWarn(false);
+        onWarnChange?.(false);
+        onChange(dateStr);
+      }
+    } else if (placeholder && !yyyy && !mm && !dd) {
+      setWarn(false);
+      onWarnChange?.(false);
+      onChange(null);
+    }
+  }
+
+  const borderClass = warn
+    ? 'border-red-400 focus:border-red-400'
+    : 'border-[var(--border)] focus:border-[var(--primary)]';
+  const inputClass = `text-center bg-white border rounded-lg py-1.5 text-sm focus:outline-none ${borderClass}`;
+
+  return (
+    <div className={className}>
+      <div className="flex items-center gap-1">
+        <input
+          type="text"
+          inputMode="numeric"
+          placeholder="YYYY"
+          maxLength={4}
+          value={local.yyyy}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, '');
+            update({ ...local, yyyy: v });
+            if (v.length === 4) setTimeout(() => monthRef.current?.focus(), 0);
+          }}
+          className={`w-14 ${inputClass}`}
+        />
+        <span className="text-gray-400 text-sm">-</span>
+        <input
+          ref={monthRef}
+          type="text"
+          inputMode="numeric"
+          placeholder="MM"
+          maxLength={2}
+          value={local.mm}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, '');
+            update({ ...local, mm: v });
+            if (v.length === 2) setTimeout(() => dayRef.current?.focus(), 0);
+          }}
+          className={`w-10 ${inputClass}`}
+        />
+        <span className="text-gray-400 text-sm">-</span>
+        <input
+          ref={dayRef}
+          type="text"
+          inputMode="numeric"
+          placeholder="DD"
+          maxLength={2}
+          value={local.dd}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, '');
+            update({ ...local, dd: v });
+          }}
+          className={`w-10 ${inputClass}`}
+        />
+      </div>
+      {warn && (
+        <p className="text-xs text-red-500 mt-1">오늘 이후 날짜를 입력해 주세요.</p>
+      )}
+    </div>
+  );
+}

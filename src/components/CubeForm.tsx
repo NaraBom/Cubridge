@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Cube, CATEGORIES, COLOR_TAGS } from '@/types';
+import { Cube, CATEGORIES, COLOR_TAGS, CATEGORY_EMOJIS } from '@/types';
 import { addCube, updateCube, deleteCube } from '@/lib/storage';
 import { Trash2, ChevronLeft } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
+import DateInput from '@/components/DateInput';
 
 type FormData = Omit<Cube, 'id' | 'created_at' | 'updated_at'>;
 
@@ -17,9 +18,11 @@ export default function CubeForm({ cube }: Props) {
   const router = useRouter();
   const isEdit = !!cube;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [dateError, setDateError] = useState(false);
 
   const [form, setForm] = useState<FormData>({
     name: cube?.name ?? '',
+    emoji: cube?.emoji ?? '🥦',
     category: cube?.category ?? '채소',
     color_tag: cube?.color_tag ?? COLOR_TAGS[0],
     quantity: cube?.quantity ?? 0,
@@ -73,6 +76,7 @@ export default function CubeForm({ cube }: Props) {
           <input
             required
             value={form.name}
+            onFocus={(e) => e.target.select()}
             onChange={(e) => set('name', e.target.value)}
             placeholder="예: 브로콜리"
             className="input"
@@ -85,7 +89,13 @@ export default function CubeForm({ cube }: Props) {
               <button
                 type="button"
                 key={cat}
-                onClick={() => set('category', cat)}
+                onClick={() => {
+                  setForm((prev) => {
+                    const emojis = CATEGORY_EMOJIS[cat] ?? [];
+                    const emoji = emojis.includes(prev.emoji) ? prev.emoji : (emojis[0] ?? prev.emoji);
+                    return { ...prev, category: cat, emoji };
+                  });
+                }}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   form.category === cat
                     ? 'bg-[var(--primary)] text-white'
@@ -93,6 +103,25 @@ export default function CubeForm({ cube }: Props) {
                 }`}
               >
                 {cat}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        <Field label="이모티콘">
+          <div className="flex flex-wrap gap-1.5">
+            {(CATEGORY_EMOJIS[form.category] ?? []).map((emoji, i) => (
+              <button
+                type="button"
+                key={i}
+                onClick={() => set('emoji', emoji)}
+                className={`w-9 h-9 rounded-lg text-xl flex items-center justify-center transition-colors ${
+                  form.emoji === emoji
+                    ? 'bg-orange-100 ring-2 ring-[var(--primary)]'
+                    : 'hover:bg-gray-100'
+                }`}
+              >
+                {emoji}
               </button>
             ))}
           </div>
@@ -118,22 +147,22 @@ export default function CubeForm({ cube }: Props) {
 
         <div className="grid grid-cols-3 gap-3">
           <Field label="현재 수량 (개)">
-            <input type="number" min={0} value={form.quantity} onChange={(e) => set('quantity', Number(e.target.value))} className="input" />
+            <input type="number" min={0} value={form.quantity} onFocus={(e) => e.target.select()} onChange={(e) => set('quantity', Number(e.target.value))} className="input" />
           </Field>
           <Field label="주의 기준 (개)">
-            <input type="number" min={0} value={form.warning_threshold} onChange={(e) => set('warning_threshold', Number(e.target.value))} className="input" />
+            <input type="number" min={0} value={form.warning_threshold} onFocus={(e) => e.target.select()} onChange={(e) => set('warning_threshold', Number(e.target.value))} className="input" />
           </Field>
           <Field label="부족 기준 (개)">
-            <input type="number" min={0} value={form.danger_threshold} onChange={(e) => set('danger_threshold', Number(e.target.value))} className="input" />
+            <input type="number" min={0} value={form.danger_threshold} onFocus={(e) => e.target.select()} onChange={(e) => set('danger_threshold', Number(e.target.value))} className="input" />
           </Field>
         </div>
 
         <Field label="1큐브당 용량 (g)">
-          <input type="number" min={1} value={form.grams_per_cube} onChange={(e) => set('grams_per_cube', Number(e.target.value))} className="input" />
+          <input type="number" min={1} value={form.grams_per_cube} onFocus={(e) => e.target.select()} onChange={(e) => set('grams_per_cube', Number(e.target.value))} className="input" />
         </Field>
 
         <Field label="유통기한 (선택)">
-          <input type="date" value={form.expiry_date ?? ''} onChange={(e) => set('expiry_date', e.target.value || null)} className="input" />
+          <DateInput value={form.expiry_date} onChange={(v) => set('expiry_date', v)} onWarnChange={setDateError} />
         </Field>
 
         <Field label="메모 (선택)">
@@ -146,7 +175,11 @@ export default function CubeForm({ cube }: Props) {
           />
         </Field>
 
-        <button type="submit" className="w-full py-3 bg-[var(--primary)] text-white font-semibold rounded-xl hover:opacity-90 transition mt-2">
+        <button
+          type="submit"
+          disabled={dateError}
+          className="w-full py-3 bg-[var(--primary)] text-white font-semibold rounded-xl hover:opacity-90 transition mt-2 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
           {isEdit ? '수정 완료' : '큐브 추가'}
         </button>
       </form>

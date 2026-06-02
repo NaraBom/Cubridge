@@ -102,7 +102,7 @@ export default function CubesPage() {
               {/* 큐브 행 목록 */}
               <div className="divide-y divide-gray-50">
                 {items.map((cube) => (
-                  <CubeRow key={cube.id} cube={cube} onUpdate={refresh} />
+                  <CubeRow key={cube.id} cube={cube} onUpdate={refresh} onDelete={refresh} />
                 ))}
               </div>
             </div>

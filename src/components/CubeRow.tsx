@@ -3,12 +3,14 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { Cube, getStockStatus } from '@/types';
-import { Minus, Plus } from 'lucide-react';
-import { updateCube, getSettings } from '@/lib/storage';
+import { Minus, Plus, Trash2 } from 'lucide-react';
+import { updateCube, deleteCube, getSettings } from '@/lib/storage';
+import ConfirmModal from '@/components/ConfirmModal';
 
 interface Props {
   cube: Cube;
   onUpdate?: (cube: Cube) => void;
+  onDelete?: (id: string) => void;
 }
 
 const STATUS_CONFIG = {
@@ -17,7 +19,7 @@ const STATUS_CONFIG = {
   danger:  { bar: 'bg-red-400',    text: 'text-red-500',    label: '부족' },
 };
 
-export default function CubeRow({ cube, onUpdate }: Props) {
+export default function CubeRow({ cube, onUpdate, onDelete }: Props) {
   const status = getStockStatus(cube.quantity, cube.warning_threshold, cube.danger_threshold);
   const { bar, text, label } = STATUS_CONFIG[status];
 
@@ -29,8 +31,10 @@ export default function CubeRow({ cube, onUpdate }: Props) {
   const isExpiringSoon = msUntilExpiry !== null && msUntilExpiry >= 0 && msUntilExpiry < expiryWarningDays * 24 * 60 * 60 * 1000;
 
   // 인라인 편집 상태
-  const [editingExpiry, setEditingExpiry] = useState(false);
-  const [editingGrams, setEditingGrams]   = useState(false);
+  const [editingExpiry, setEditingExpiry]     = useState(false);
+  const [editingGrams, setEditingGrams]       = useState(false);
+  const [expiryWarn, setExpiryWarn]           = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [gramsDraft, setGramsDraft]       = useState(String(cube.grams_per_cube));
   const gramsRef = useRef<HTMLInputElement>(null);
 
@@ -50,13 +54,21 @@ export default function CubeRow({ cube, onUpdate }: Props) {
   }, [editingExpiry, cube.expiry_date]);
 
   function saveExpiry() {
+    const todayStr = new Date().toISOString().slice(0, 10);
     const value = yyyy && mm && dd ? `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}` : null;
+    if (value && value < todayStr) {
+      alert('오늘 이전 날짜는 저장할 수 없습니다.');
+      setExpiryWarn(true);
+      return;
+    }
+    setExpiryWarn(false);
     const updated = updateCube(cube.id, { expiry_date: value });
     if (updated && onUpdate) onUpdate(updated);
     setEditingExpiry(false);
   }
 
   function cancelExpiry() {
+    setExpiryWarn(false);
     setEditingExpiry(false);
   }
 
@@ -82,9 +94,9 @@ export default function CubeRow({ cube, onUpdate }: Props) {
         {/* 상태 바 */}
         <div className={`w-1 h-8 rounded-full flex-shrink-0 ${bar}`} />
 
-        {/* 색상 점 + 이름 */}
+        {/* 이모티콘 + 이름 */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cube.color_tag }} />
+          <span className="text-lg leading-none flex-shrink-0">{cube.emoji ?? '🥦'}</span>
           <Link
             href={`/cubes/${cube.id}`}
             className="font-medium text-gray-800 hover:text-[var(--primary)] transition-colors truncate text-sm"
@@ -96,6 +108,7 @@ export default function CubeRow({ cube, onUpdate }: Props) {
         {/* 유통기한 — 클릭 시 date input */}
         <div className="hidden sm:block w-36 text-xs flex-shrink-0">
           {editingExpiry ? (
+            <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-0.5 text-xs">
               <input
                 autoFocus
@@ -148,9 +161,13 @@ export default function CubeRow({ cube, onUpdate }: Props) {
                 className="w-8 text-center border border-[var(--primary)] rounded-md py-0.5 focus:outline-none"
               />
             </div>
+            {expiryWarn && (
+              <span className="text-red-500" style={{ fontSize: '10px' }}>오늘 이후 날짜를 입력해 주세요.</span>
+            )}
+            </div>
           ) : (
             <button
-              onClick={() => setEditingExpiry(true)}
+              onClick={() => { setExpiryWarn(false); setEditingExpiry(true); }}
               className="text-left w-full hover:underline decoration-dashed underline-offset-2"
             >
               {isExpired && cube.expiry_date && (
@@ -214,8 +231,28 @@ export default function CubeRow({ cube, onUpdate }: Props) {
               <Plus size={12} />
             </button>
           </div>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+          >
+            <Trash2 size={13} />
+          </button>
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <ConfirmModal
+          title="큐브 삭제"
+          message={`'${cube.name}'을(를) 삭제할까요? 소비 기록은 유지됩니다.`}
+          confirmLabel="삭제"
+          danger
+          onConfirm={() => {
+            deleteCube(cube.id);
+            onDelete?.(cube.id);
+          }}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
 
       {/* 수량 도트 표시 */}
       <div className="flex items-center gap-0.5 mt-1.5 pl-4">
