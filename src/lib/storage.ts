@@ -47,7 +47,8 @@ function isBrowser() {
 export function getCubes(): Cube[] {
   if (!isBrowser()) return [];
   try {
-    return JSON.parse(localStorage.getItem(CUBES_KEY) || '[]');
+    const parsed = JSON.parse(localStorage.getItem(CUBES_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -61,7 +62,8 @@ export function saveCubes(cubes: Cube[]) {
 export function getLogs(): ConsumptionLog[] {
   if (!isBrowser()) return [];
   try {
-    return JSON.parse(localStorage.getItem(LOGS_KEY) || '[]');
+    const parsed = JSON.parse(localStorage.getItem(LOGS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }

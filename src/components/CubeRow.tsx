@@ -57,7 +57,6 @@ export default function CubeRow({ cube, expiryWarningDays = 7, onUpdate, onDelet
     const todayStr = new Date().toISOString().slice(0, 10);
     const value = yyyy && mm && dd ? `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}` : null;
     if (value && value < todayStr) {
-      alert('오늘 이전 날짜는 저장할 수 없습니다.');
       setExpiryWarn(true);
       return;
     }

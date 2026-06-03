@@ -27,12 +27,6 @@ export interface ConsumptionLog {
   notes: string | null;
 }
 
-export interface DashboardStats {
-  total_cubes: number;
-  low_stock_count: number;
-  danger_count: number;
-  today_consumption: number;
-}
 
 export const CATEGORIES = ['채소', '과일', '육류', '생선', '곡물', '밥', '기타'] as const;
 export type Category = typeof CATEGORIES[number];
