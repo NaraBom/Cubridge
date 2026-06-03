@@ -73,7 +73,7 @@ export default function DashboardPage() {
             </h2>
             <Link href="/cubes" className="text-sm text-[var(--primary)] hover:underline">전체 보기</Link>
           </div>
-          <div className="bg-white rounded-2xl border border-[var(--border)] divide-y divide-gray-100">
+          <div className="bg-white rounded-2xl border border-[var(--border)] divide-y divide-gray-100 max-h-[480px] overflow-y-auto">
             {alertCubes.map((cube) => (
               <CubeRow key={cube.id} cube={cube} expiryWarningDays={expiryWarningDays} onUpdate={refresh} onDelete={refresh} />
             ))}
@@ -95,14 +95,13 @@ export default function DashboardPage() {
             <Link href="/cubes" className="text-sm text-[var(--primary)] hover:underline">전체 보기</Link>
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-[var(--border)] divide-y divide-gray-100">
+        <div className="bg-white rounded-2xl border border-[var(--border)] divide-y divide-gray-100 max-h-[480px] overflow-y-auto">
           {[...cubes]
             .sort((a, b) => {
               const order = { danger: 0, warning: 1, ok: 2 };
               return order[getStockStatus(a.quantity, a.warning_threshold, a.danger_threshold)] -
                      order[getStockStatus(b.quantity, b.warning_threshold, b.danger_threshold)];
             })
-            .slice(0, 6)
             .map((cube) => (
               <CubeRow key={cube.id} cube={cube} expiryWarningDays={expiryWarningDays} onUpdate={refresh} onDelete={refresh} />
             ))}

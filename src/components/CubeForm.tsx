@@ -150,7 +150,7 @@ export default function CubeForm({ cube }: Props) {
           </div>
         </Field>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Field label="현재 수량 (개)">
             <input type="number" min={0} value={form.quantity} onFocus={(e) => e.target.select()} onChange={(e) => set('quantity', Number(e.target.value))} className="input" />
           </Field>

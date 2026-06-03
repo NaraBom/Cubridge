@@ -177,40 +177,39 @@ export default function CubesPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">큐브 목록</h1>
-        <div className="flex items-center gap-2">
-          {zeroCubes.length > 0 && (
-            <button
-              onClick={() => setShowDeleteZero(true)}
-              className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-500 px-4 py-2 rounded-xl hover:bg-red-100 transition text-sm font-medium cursor-pointer"
-            >
-              <Trash2 size={16} />
-              0개 큐브 삭제 ({zeroCubes.length})
-            </button>
-          )}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        <h1 className="text-2xl font-bold text-gray-800 mr-auto">큐브 목록</h1>
+        {zeroCubes.length > 0 && (
           <button
-            onClick={exportExcel}
-            className="flex items-center gap-2 bg-white border border-[var(--border)] text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-50 transition text-sm font-medium cursor-pointer"
+            onClick={() => setShowDeleteZero(true)}
+            className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-500 px-3 py-2 rounded-xl hover:bg-red-100 transition text-sm font-medium cursor-pointer"
           >
-            <FileSpreadsheet size={16} />
-            Excel
+            <Trash2 size={16} />
+            <span className="hidden sm:inline">0개 큐브 삭제 ({zeroCubes.length})</span>
+            <span className="sm:hidden">삭제 ({zeroCubes.length})</span>
           </button>
-          <button
-            onClick={exportCSV}
-            className="flex items-center gap-2 bg-white border border-[var(--border)] text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-50 transition text-sm font-medium cursor-pointer"
-          >
-            <Download size={16} />
-            CSV
-          </button>
-          <Link
-            href="/cubes/new"
-            className="flex items-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-xl hover:opacity-90 transition text-sm font-medium"
-          >
-            <Plus size={16} />
-            큐브 추가
-          </Link>
-        </div>
+        )}
+        <button
+          onClick={exportExcel}
+          className="flex items-center gap-1.5 bg-white border border-[var(--border)] text-gray-600 px-3 py-2 rounded-xl hover:bg-gray-50 transition text-sm font-medium cursor-pointer"
+        >
+          <FileSpreadsheet size={16} />
+          <span className="hidden sm:inline">Excel</span>
+        </button>
+        <button
+          onClick={exportCSV}
+          className="flex items-center gap-1.5 bg-white border border-[var(--border)] text-gray-600 px-3 py-2 rounded-xl hover:bg-gray-50 transition text-sm font-medium cursor-pointer"
+        >
+          <Download size={16} />
+          <span className="hidden sm:inline">CSV</span>
+        </button>
+        <Link
+          href="/cubes/new"
+          className="flex items-center gap-1.5 bg-[var(--primary)] text-white px-3 py-2 rounded-xl hover:opacity-90 transition text-sm font-medium"
+        >
+          <Plus size={16} />
+          큐브 추가
+        </Link>
       </div>
 
       {/* 검색 & 상태 필터 */}
@@ -225,7 +224,7 @@ export default function CubesPage() {
             className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-[var(--border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-opacity-30"
           />
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {STATUS_FILTERS.map(({ value, label }) => (
             <button
               key={value}
@@ -261,7 +260,7 @@ export default function CubesPage() {
                 <span className="text-xs text-gray-400">{items.length}종</span>
               </div>
               {/* 큐브 행 목록 */}
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-gray-50 max-h-[480px] overflow-y-auto">
                 {items.map((cube) => (
                   <CubeRow key={cube.id} cube={cube} expiryWarningDays={expiryWarningDays} onUpdate={refresh} onDelete={refresh} />
                 ))}
