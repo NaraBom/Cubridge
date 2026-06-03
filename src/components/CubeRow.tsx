@@ -85,8 +85,6 @@ export default function CubeRow({ cube, expiryWarningDays = 7, onUpdate, onDelet
     if (updated && onUpdate) onUpdate(updated);
   }
 
-  const quantity = cube.quantity;
-
   return (
     <div className="px-4 py-3 hover:bg-gray-50 transition-colors">
       <div className="flex items-center gap-3">
@@ -255,11 +253,11 @@ export default function CubeRow({ cube, expiryWarningDays = 7, onUpdate, onDelet
 
       {/* 수량 도트 표시 */}
       <div className="flex items-center gap-0.5 mt-1.5 pl-4">
-        {quantity === 0 ? (
+        {cube.quantity === 0 ? (
           <span className="text-xs text-gray-300">-</span>
         ) : (
           <>
-            {Array.from({ length: Math.min(quantity, 20) }).map((_, i) => (
+            {Array.from({ length: Math.min(cube.quantity, 20) }).map((_, i) => (
               <span key={i} className="flex items-center gap-0.5">
                 {i > 0 && i % 10 === 0 && (
                   <span className="text-xs leading-none text-gray-400 mx-0.5">/</span>
@@ -267,8 +265,8 @@ export default function CubeRow({ cube, expiryWarningDays = 7, onUpdate, onDelet
                 <span className="leading-none" style={{ fontSize: '20px', color: cube.color_tag }}>●</span>
               </span>
             ))}
-            {quantity > 20 && (
-              <span className="text-xs text-gray-400 ml-1">+{quantity - 20}</span>
+            {cube.quantity > 20 && (
+              <span className="text-xs text-gray-400 ml-1">+{cube.quantity - 20}</span>
             )}
           </>
         )}

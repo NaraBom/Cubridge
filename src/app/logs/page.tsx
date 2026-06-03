@@ -29,11 +29,13 @@ export default function LogsPage() {
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MergedLog | null>(null);
   const [depleted, setDepleted] = useState<Cube | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formDate, setFormDate] = useState(todayKey);
-  const [formTime, setFormTime] = useState('12:00');
-  const [notes, setNotes] = useState('');
-  const [entries, setEntries] = useState<LogEntry[]>([{ id: crypto.randomUUID(), cubeId: '', quantity: 1 }]);
+  const [form, setForm] = useState({
+    error: null as string | null,
+    date: todayKey,
+    time: '12:00',
+    notes: '',
+    entries: [{ id: crypto.randomUUID(), cubeId: '', quantity: 1 }] as LogEntry[],
+  });
 
   useEffect(() => {
     setCubes(getCubes());
@@ -67,8 +69,8 @@ export default function LogsPage() {
     );
     const merged: MergedLog[] = [];
     for (const log of sorted) {
-      const key = `${log.logged_at}__${log.cube_name}`;
-      const existing = merged.find(m => `${m.logged_at}__${m.cube_name}` === key);
+      const key = `${log.cube_id}__${log.meal_time}`;
+      const existing = merged.find(m => `${m.cube_id}__${m.meal_time}` === key);
       if (existing) {
         existing.quantity += log.quantity;
         existing._ids.push(log.id);
@@ -98,26 +100,22 @@ export default function LogsPage() {
   }
 
   function openForm() {
-    setFormDate(selectedDate);
-    setFormTime('12:00');
-    setNotes('');
-    setFormError(null);
-    setEntries([{ id: crypto.randomUUID(), cubeId: '', quantity: 1 }]);
+    setForm({ error: null, date: selectedDate, time: '12:00', notes: '', entries: [{ id: crypto.randomUUID(), cubeId: '', quantity: 1 }] });
     setShowForm(true);
   }
 
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
 
-    const hour = parseInt(formTime.split(':')[0]);
+    const hour = parseInt(form.time.split(':')[0]);
     let mealTime: MealTime = 'snack';
     if (hour >= 6 && hour < 10) mealTime = 'breakfast';
     else if (hour >= 11 && hour < 14) mealTime = 'lunch';
     else if (hour >= 17 && hour < 21) mealTime = 'dinner';
-    const loggedAt = new Date(`${formDate}T${formTime}:00`).toISOString();
+    const loggedAt = new Date(`${form.date}T${form.time}:00`).toISOString();
 
     const totalByCube = new Map<string, number>();
-    for (const entry of entries) {
+    for (const entry of form.entries) {
       if (!entry.cubeId) continue;
       totalByCube.set(entry.cubeId, (totalByCube.get(entry.cubeId) ?? 0) + entry.quantity);
     }
@@ -125,17 +123,17 @@ export default function LogsPage() {
       const cube = cubes.find((c) => c.id === cubeId);
       if (!cube) continue;
       if (total > cube.quantity) {
-        setFormError(`[${cube.name}] 재고 부족: 재고 ${cube.quantity}개, 입력 합계 ${total}개`);
+        setForm((f) => ({ ...f, error: `[${cube.name}] 재고 부족: 재고 ${cube.quantity}개, 입력 합계 ${total}개` }));
         return;
       }
     }
 
     let firstDepleted: Cube | null = null;
-    for (const entry of entries) {
+    for (const entry of form.entries) {
       if (!entry.cubeId) continue;
       const cube = cubes.find((c) => c.id === entry.cubeId);
       if (!cube) continue;
-      addLog({ cube_id: entry.cubeId, cube_name: cube.name, quantity: entry.quantity, meal_time: mealTime, logged_at: loggedAt, notes: notes || null });
+      addLog({ cube_id: entry.cubeId, cube_name: cube.name, quantity: entry.quantity, meal_time: mealTime, logged_at: loggedAt, notes: form.notes || null });
       const updatedCube = getCubes().find((c) => c.id === entry.cubeId);
       if (!firstDepleted && updatedCube && updatedCube.quantity === 0) firstDepleted = updatedCube;
     }
@@ -143,8 +141,6 @@ export default function LogsPage() {
     setLogs(getLogs());
     setCubes(getCubes());
     setShowForm(false);
-    setEntries([{ id: crypto.randomUUID(), cubeId: '', quantity: 1 }]);
-    setNotes('');
 
     if (firstDepleted) setDepleted(firstDepleted);
   }
@@ -194,16 +190,16 @@ export default function LogsPage() {
       {showForm && (
         <LogForm
           cubes={cubes}
-          entries={entries}
-          formDate={formDate}
-          formTime={formTime}
-          notes={notes}
-          formError={formError}
+          entries={form.entries}
+          formDate={form.date}
+          formTime={form.time}
+          notes={form.notes}
+          formError={form.error}
           todayKey={todayKey}
-          onChangeEntries={setEntries}
-          onChangeFormDate={setFormDate}
-          onChangeFormTime={setFormTime}
-          onChangeNotes={setNotes}
+          onChangeEntries={(entries) => setForm((f) => ({ ...f, entries }))}
+          onChangeFormDate={(date) => setForm((f) => ({ ...f, date }))}
+          onChangeFormTime={(time) => setForm((f) => ({ ...f, time }))}
+          onChangeNotes={(notes) => setForm((f) => ({ ...f, notes }))}
           onSubmit={handleAdd}
           onClose={() => setShowForm(false)}
         />

@@ -70,7 +70,8 @@ export default function SettingsPage() {
     setSettings(updated);
     saveSettings(updated);
     setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    const t = setTimeout(() => setSaved(false), 1500);
+    return () => clearTimeout(t);
   }
 
   async function handlePushToggle() {

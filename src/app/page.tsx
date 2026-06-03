@@ -11,9 +11,10 @@ export default function DashboardPage() {
   const [cubes, setCubes] = useState<Cube[]>([]);
   const [logs, setLogs] = useState<ConsumptionLog[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const expiryWarningDays = getSettings().expiryWarningDays;
+  const [expiryWarningDays, setExpiryWarningDays] = useState(7);
 
   useEffect(() => {
+    setExpiryWarningDays(getSettings().expiryWarningDays);
     const stored = getCubes();
     if (stored.length === 0) {
       const samples = getSampleCubes();
