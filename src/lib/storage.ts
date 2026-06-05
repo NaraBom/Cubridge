@@ -140,6 +140,14 @@ export function addLog(log: Omit<ConsumptionLog, 'id'>): ConsumptionLog {
   return newLog;
 }
 
+export function updateLog(id: string, updates: Partial<Pick<ConsumptionLog, 'reaction' | 'notes'>>) {
+  const logs = getLogs();
+  const idx = logs.findIndex((l) => l.id === id);
+  if (idx === -1) return;
+  logs[idx] = { ...logs[idx], ...updates };
+  saveLogs(logs);
+}
+
 export function deleteLog(id: string, restoreStock = false) {
   const logs = getLogs();
   const log = logs.find((l) => l.id === id);

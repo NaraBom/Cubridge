@@ -18,6 +18,7 @@ interface Props {
   notes: string;
   formError: string | null;
   todayKey: string;
+  title?: string;
   onChangeEntries: (entries: LogEntry[]) => void;
   onChangeFormDate: (date: string) => void;
   onChangeFormTime: (time: string) => void;
@@ -28,6 +29,7 @@ interface Props {
 
 export default function LogForm({
   cubes, entries, formDate, formTime, notes, formError, todayKey,
+  title = '소비 기록 추가',
   onChangeEntries, onChangeFormDate, onChangeFormTime, onChangeNotes,
   onSubmit, onClose,
 }: Props) {
@@ -39,7 +41,7 @@ export default function LogForm({
         style={{ marginTop: 'max(1rem, 10vh)', marginBottom: 'max(1rem, 10vh)' }}
       >
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800">소비 기록 추가</h2>
+          <h2 className="font-semibold text-gray-800">{title}</h2>
           <button type="button" onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100">
             <X size={18} />
           </button>

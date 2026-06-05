@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { AppSettings, getSettings, saveSettings, clearAllData, getCubes, getSampleCubes, addCube, saveCubes } from '@/lib/storage';
-import { Bell, CalendarClock, Package, RotateCcw, Trash2, ChevronRight, Check } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { AppSettings, getSettings, saveSettings, clearAllData, getCubes, getLogs, getSampleCubes, addCube, saveCubes, saveLogs, saveBabyProfile, getBabyProfile } from '@/lib/storage';
+import { Bell, CalendarClock, Package, RotateCcw, Trash2, ChevronRight, Check, Upload } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 
-type ConfirmType = 'reset' | 'clearAll' | null;
+type ConfirmType = 'reset' | 'clearAll' | 'import' | null;
 
 type DraftKey = 'expiryWarningDays' | 'defaultWarningThreshold' | 'defaultDangerThreshold' | 'defaultGramsPerCube';
 
@@ -19,6 +19,9 @@ export default function SettingsPage() {
     return 'default';
   });
   const [confirmType, setConfirmType] = useState<ConfirmType>(null);
+  const [importData, setImportData] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const [pushError, setPushError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<DraftKey, string>>(() => {
     const s = getSettings();
@@ -101,6 +104,8 @@ export default function SettingsPage() {
   function handleExport() {
     const data = {
       cubes: getCubes(),
+      logs: getLogs(),
+      baby: getBabyProfile(),
       settings,
       exportedAt: new Date().toISOString(),
     };
@@ -111,6 +116,44 @@ export default function SettingsPage() {
     a.download = `cubridge_backup_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result;
+      if (typeof text !== 'string') return;
+      try {
+        JSON.parse(text); // validate
+        setImportData(text);
+        setImportError(null);
+        setConfirmType('import');
+      } catch {
+        setImportError('올바른 JSON 파일이 아닙니다.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  function handleImportConfirm() {
+    if (!importData) return;
+    try {
+      const parsed = JSON.parse(importData);
+      if (Array.isArray(parsed.cubes)) saveCubes(parsed.cubes);
+      if (Array.isArray(parsed.logs)) saveLogs(parsed.logs);
+      if (parsed.baby) saveBabyProfile(parsed.baby);
+      if (parsed.settings) {
+        saveSettings({ ...settings, ...parsed.settings });
+        setSettings({ ...settings, ...parsed.settings });
+      }
+    } catch {
+      setImportError('가져오기 중 오류가 발생했습니다.');
+    }
+    setImportData(null);
+    setConfirmType(null);
   }
 
   return (
@@ -228,11 +271,28 @@ export default function SettingsPage() {
           className="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-gray-50 transition text-left"
         >
           <div>
-            <div className="text-sm font-medium text-gray-700">데이터 백업 (JSON)</div>
-            <div className="text-xs text-gray-400 mt-0.5">큐브 목록을 파일로 내보내기</div>
+            <div className="text-sm font-medium text-gray-700">데이터 내보내기 (JSON)</div>
+            <div className="text-xs text-gray-400 mt-0.5">큐브, 소비 기록, 아기 정보를 파일로 저장</div>
           </div>
           <ChevronRight size={16} className="text-gray-400" />
         </button>
+
+        <button
+          onClick={() => importFileRef.current?.click()}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-gray-50 transition text-left"
+        >
+          <div>
+            <div className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+              <Upload size={14} /> 데이터 가져오기 (JSON)
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5">백업 파일로 데이터 복원 (기존 데이터 덮어씀)</div>
+          </div>
+          <ChevronRight size={16} className="text-gray-400" />
+        </button>
+        <input ref={importFileRef} type="file" accept="application/json" className="hidden" onChange={handleImportFile} />
+        {importError && (
+          <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mx-1">{importError}</p>
+        )}
 
         <button
           onClick={() => setConfirmType('reset')}
@@ -271,6 +331,18 @@ export default function SettingsPage() {
           confirmLabel="초기화"
           onConfirm={handleResetSample}
           onCancel={() => setConfirmType(null)}
+        />
+      )}
+
+      {confirmType === 'import' && (
+        <ConfirmModal
+          title="데이터 가져오기"
+          message="백업 파일로 데이터를 복원할까요? 현재 큐브, 소비 기록, 아기 정보가 덮어써집니다."
+          confirmLabel="가져오기"
+          cancelLabel="취소"
+          danger
+          onConfirm={handleImportConfirm}
+          onCancel={() => { setImportData(null); setConfirmType(null); }}
         />
       )}
 

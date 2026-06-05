@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Cube, ConsumptionLog } from '@/types';
-import { getCubes, getLogs, addLog, deleteLog, deleteCube } from '@/lib/storage';
+import { Cube, ConsumptionLog, Reaction } from '@/types';
+import { getCubes, getLogs, addLog, deleteLog, deleteCube, updateLog } from '@/lib/storage';
 import { Plus } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import LogCalendar from '@/components/LogCalendar';
@@ -27,6 +27,7 @@ export default function LogsPage() {
   const [selectedDate, setSelectedDate] = useState<string>(todayKey);
 
   const [showForm, setShowForm] = useState(false);
+  const [editTarget, setEditTarget] = useState<MergedLog | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MergedLog | null>(null);
   const [depleted, setDepleted] = useState<Cube | null>(null);
   const [form, setForm] = useState({
@@ -128,7 +129,7 @@ export default function LogsPage() {
       if (!entry.cubeId) continue;
       const cube = cubes.find((c) => c.id === entry.cubeId);
       if (!cube) continue;
-      addLog({ cube_id: entry.cubeId, cube_name: cube.name, quantity: entry.quantity, meal_time: mealTime, logged_at: loggedAt, notes: form.notes || null });
+      addLog({ cube_id: entry.cubeId, cube_name: cube.name, quantity: entry.quantity, meal_time: mealTime, logged_at: loggedAt, notes: form.notes || null, reaction: null });
       const updatedCube = getCubes().find((c) => c.id === entry.cubeId);
       if (!firstDepleted && updatedCube && updatedCube.quantity === 0) firstDepleted = updatedCube;
     }
@@ -138,6 +139,66 @@ export default function LogsPage() {
     setShowForm(false);
 
     if (firstDepleted) setDepleted(firstDepleted);
+  }
+
+  function openEditForm(log: MergedLog) {
+    const d = new Date(log.logged_at);
+    setEditTarget(log);
+    setForm({
+      error: null,
+      date: toDateKey(d),
+      time: d.toTimeString().slice(0, 5),
+      notes: log.notes ?? '',
+      entries: [{ id: crypto.randomUUID(), cubeId: log.cube_id, quantity: log.quantity }],
+    });
+    setShowForm(true);
+  }
+
+  function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTarget) return;
+
+    const hour = parseInt(form.time.split(':')[0]);
+    let mealTime: MealTime = 'snack';
+    if (hour >= 6 && hour < 9) mealTime = 'breakfast';
+    else if (hour >= 10 && hour < 13) mealTime = 'lunch';
+    else if (hour >= 14 && hour < 17) mealTime = 'dinner';
+    const loggedAt = new Date(`${form.date}T${form.time}:00`).toISOString();
+
+    // 복원될 재고를 포함해서 유효성 검사
+    for (const entry of form.entries) {
+      if (!entry.cubeId) continue;
+      const cube = cubes.find((c) => c.id === entry.cubeId);
+      if (!cube) continue;
+      const restoredQty = entry.cubeId === editTarget.cube_id
+        ? cube.quantity + editTarget.quantity
+        : cube.quantity;
+      if (entry.quantity > restoredQty) {
+        setForm((f) => ({ ...f, error: `[${cube.name}] 재고 부족: 재고 ${restoredQty}개, 입력 ${entry.quantity}개` }));
+        return;
+      }
+    }
+
+    // 기존 기록 삭제 (재고 복원)
+    editTarget._ids.forEach((id) => deleteLog(id, true));
+
+    // 새 기록 추가
+    for (const entry of form.entries) {
+      if (!entry.cubeId) continue;
+      const cube = getCubes().find((c) => c.id === entry.cubeId);
+      if (!cube) continue;
+      addLog({ cube_id: entry.cubeId, cube_name: cube.name, quantity: entry.quantity, meal_time: mealTime, logged_at: loggedAt, notes: form.notes || null, reaction: null });
+    }
+
+    setLogs(getLogs());
+    setCubes(getCubes());
+    setShowForm(false);
+    setEditTarget(null);
+  }
+
+  function handleReactionChange(log: MergedLog, reaction: Reaction | null) {
+    log._ids.forEach((id) => updateLog(id, { reaction }));
+    setLogs(getLogs());
   }
 
   function handleDelete(restoreStock: boolean) {
@@ -179,6 +240,8 @@ export default function LogsPage() {
           selectedDateLabel={selectedDateLabel}
           onAddClick={openForm}
           onDeleteClick={setDeleteTarget}
+          onEditClick={openEditForm}
+          onReactionChange={handleReactionChange}
         />
       </div>
 
@@ -191,12 +254,13 @@ export default function LogsPage() {
           notes={form.notes}
           formError={form.error}
           todayKey={todayKey}
+          title={editTarget ? '소비 기록 수정' : '소비 기록 추가'}
           onChangeEntries={(entries) => setForm((f) => ({ ...f, entries }))}
           onChangeFormDate={(date) => setForm((f) => ({ ...f, date }))}
           onChangeFormTime={(time) => setForm((f) => ({ ...f, time }))}
           onChangeNotes={(notes) => setForm((f) => ({ ...f, notes }))}
-          onSubmit={handleAdd}
-          onClose={() => setShowForm(false)}
+          onSubmit={editTarget ? handleEdit : handleAdd}
+          onClose={() => { setShowForm(false); setEditTarget(null); }}
         />
       )}
 

@@ -17,6 +17,14 @@ export interface Cube {
   updated_at: string;
 }
 
+export type Reaction = 'none' | 'mild' | 'severe';
+
+export const REACTIONS: Record<Reaction, { label: string; emoji: string; color: string }> = {
+  none:   { label: '이상없음', emoji: '✅', color: 'text-green-500' },
+  mild:   { label: '경미',     emoji: '⚠️', color: 'text-yellow-500' },
+  severe: { label: '심각',     emoji: '🚨', color: 'text-red-500' },
+};
+
 export interface ConsumptionLog {
   id: string;
   cube_id: string;
@@ -25,6 +33,7 @@ export interface ConsumptionLog {
   meal_time: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   logged_at: string;
   notes: string | null;
+  reaction: Reaction | null;
 }
 
 
