@@ -13,6 +13,7 @@ export interface Cube {
   expiry_date: string | null;
   photo_url: string | null;
   notes: string | null;
+  introduced_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +37,14 @@ export interface ConsumptionLog {
   reaction: Reaction | null;
 }
 
+
+export interface MealPlan {
+  id: string;
+  date: string; // 'YYYY-MM-DD'
+  meal_time: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  cube_ids: string[];
+  logged: boolean; // 소비 기록에 추가되었는지
+}
 
 export const CATEGORIES = ['채소', '과일', '육류', '생선', '곡물', '밥', '기타'] as const;
 export type Category = typeof CATEGORIES[number];

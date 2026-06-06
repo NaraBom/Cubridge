@@ -1,31 +1,23 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { Cube, ConsumptionLog, getStockStatus, MEAL_TIMES } from '@/types';
+import { Cube, getStockStatus, MEAL_TIMES } from '@/types';
 import { getCubes, getLogs, getSampleCubes, addCube, getSettings } from '@/lib/storage';
 import CubeRow from '@/components/CubeRow';
 import { AlertCircle, Box, Plus } from 'lucide-react';
 
 export default function DashboardPage() {
-  const [cubes, setCubes] = useState<Cube[]>([]);
-  const [logs, setLogs] = useState<ConsumptionLog[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [expiryWarningDays, setExpiryWarningDays] = useState(7);
-
-  useEffect(() => {
-    setExpiryWarningDays(getSettings().expiryWarningDays);
+  const [cubes, setCubes] = useState<Cube[]>(() => {
     const stored = getCubes();
     if (stored.length === 0) {
-      const samples = getSampleCubes();
-      samples.forEach((s) => addCube(s));
-      setCubes(getCubes());
-    } else {
-      setCubes(stored);
+      getSampleCubes().forEach((s) => addCube(s));
+      return getCubes();
     }
-    setLogs(getLogs());
-    setLoaded(true);
-  }, []);
+    return stored;
+  });
+  const [logs] = useState(() => getLogs());
+  const [expiryWarningDays] = useState(() => getSettings().expiryWarningDays);
 
   function refresh() {
     setCubes(getCubes());
@@ -49,8 +41,6 @@ export default function DashboardPage() {
 
   // 오늘 소비한 큐브 이름 (중복 제거)
   const todayCubeNames = [...new Set(todayLogs.map((l) => l.cube_name))].join(', ');
-
-  if (!loaded) return null;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">

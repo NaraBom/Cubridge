@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Cube, getStockStatus } from '@/types';
 import { AlertTriangle, AlertCircle, CheckCircle2, Minus, Plus } from 'lucide-react';
@@ -19,10 +20,11 @@ const STATUS_CONFIG = {
 export default function CubeCard({ cube, onUpdate }: Props) {
   const status = getStockStatus(cube.quantity, cube.warning_threshold, cube.danger_threshold);
   const { border, bg, icon: Icon, iconColor } = STATUS_CONFIG[status];
+  const [now] = useState(() => Date.now());
 
   const { expiryWarningDays } = getSettings();
   const msUntilExpiry = cube.expiry_date
-    ? new Date(cube.expiry_date).getTime() - Date.now()
+    ? new Date(cube.expiry_date).getTime() - now
     : null;
   const isExpired = msUntilExpiry !== null && msUntilExpiry < 0;
   const isExpiringSoon = msUntilExpiry !== null && msUntilExpiry >= 0 && msUntilExpiry < expiryWarningDays * 24 * 60 * 60 * 1000;

@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Box, BookOpen, BarChart2, Settings } from 'lucide-react';
+import { LayoutDashboard, Box, BookOpen, BarChart2, CalendarDays, Settings } from 'lucide-react';
 import BabyCard from '@/components/BabyCard';
 
 const NAV_ITEMS = [
   { href: '/', label: '대시보드', icon: LayoutDashboard },
   { href: '/cubes', label: '큐브 목록', icon: Box },
   { href: '/logs', label: '소비 기록', icon: BookOpen },
+  { href: '/schedule', label: '식단 계획', icon: CalendarDays },
   { href: '/stats', label: '통계', icon: BarChart2 },
 ];
 

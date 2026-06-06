@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Cube, ConsumptionLog, Reaction } from '@/types';
 import { getCubes, getLogs, addLog, deleteLog, deleteCube, updateLog } from '@/lib/storage';
 import { Plus } from 'lucide-react';
@@ -13,18 +13,35 @@ type MealTime = ConsumptionLog['meal_time'];
 type MergedLog = ConsumptionLog & { _ids: string[] };
 
 function toDateKey(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 export default function LogsPage() {
   const [cubes, setCubes] = useState<Cube[]>(() => getCubes());
   const [logs, setLogs] = useState<ConsumptionLog[]>(() => getLogs());
 
-  const today = new Date();
-  const todayKey = toDateKey(today);
-  const [viewYear, setViewYear] = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth());
-  const [selectedDate, setSelectedDate] = useState<string>(todayKey);
+  const [todayKey, setTodayKey] = useState(() => toDateKey(new Date()));
+  const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
+  const [selectedDate, setSelectedDate] = useState<string>(() => toDateKey(new Date()));
+
+  useEffect(() => {
+    function scheduleNextMidnight() {
+      const now = new Date();
+      const msUntilMidnight =
+        new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
+      return setTimeout(() => {
+        const newKey = toDateKey(new Date());
+        setTodayKey(newKey);
+        scheduleNextMidnight();
+      }, msUntilMidnight);
+    }
+    const id = scheduleNextMidnight();
+    return () => clearTimeout(id);
+  }, []);
 
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<MergedLog | null>(null);
@@ -90,9 +107,10 @@ export default function LogsPage() {
     else setViewMonth(m => m + 1);
   }
   function goToday() {
-    setViewYear(today.getFullYear());
-    setViewMonth(today.getMonth());
-    setSelectedDate(todayKey);
+    const now = new Date();
+    setViewYear(now.getFullYear());
+    setViewMonth(now.getMonth());
+    setSelectedDate(toDateKey(now));
   }
 
   function openForm() {

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Cube, CATEGORIES, COLOR_TAGS, CATEGORY_EMOJIS } from '@/types';
-import { addCube, updateCube, deleteCube } from '@/lib/storage';
+import { addCube, updateCube, deleteCube, getSettings } from '@/lib/storage';
 import { Trash2, ChevronLeft } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import DateInput from '@/components/DateInput';
@@ -20,18 +20,25 @@ export default function CubeForm({ cube }: Props) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [dateError, setDateError] = useState(false);
 
-  const [form, setForm] = useState<FormData>({
-    name: cube?.name ?? '',
-    emoji: cube?.emoji ?? '🥦',
-    category: cube?.category ?? '채소',
-    color_tag: cube?.color_tag ?? COLOR_TAGS[0],
-    quantity: cube?.quantity ?? 0,
-    warning_threshold: cube?.warning_threshold ?? 5,
-    danger_threshold: cube?.danger_threshold ?? 2,
-    grams_per_cube: cube?.grams_per_cube ?? 30,
-    expiry_date: cube?.expiry_date ?? null,
-    photo_url: cube?.photo_url ?? null,
-    notes: cube?.notes ?? null,
+  const [form, setForm] = useState<FormData>(() => {
+    const settings = getSettings();
+    const twoWeeksFromNow = new Date();
+    twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
+    const defaultExpiry = twoWeeksFromNow.toISOString().slice(0, 10);
+    return {
+      name: cube?.name ?? '',
+      emoji: cube?.emoji ?? '🥦',
+      category: cube?.category ?? '채소',
+      color_tag: cube?.color_tag ?? COLOR_TAGS[0],
+      quantity: cube?.quantity ?? 0,
+      warning_threshold: cube?.warning_threshold ?? settings.defaultWarningThreshold,
+      danger_threshold: cube?.danger_threshold ?? settings.defaultDangerThreshold,
+      grams_per_cube: cube?.grams_per_cube ?? settings.defaultGramsPerCube,
+      expiry_date: cube?.expiry_date ?? defaultExpiry,
+      photo_url: cube?.photo_url ?? null,
+      notes: cube?.notes ?? null,
+      introduced_at: cube?.introduced_at ?? null,
+    };
   });
 
   function set<K extends keyof FormData>(key: K, value: FormData[K]) {
@@ -183,6 +190,14 @@ export default function CubeForm({ cube }: Props) {
           />
         </Field>
 
+        {isEdit && form.introduced_at && (
+          <Field label="도입일">
+            <div className="text-sm text-gray-600 px-3 py-2 bg-gray-50 rounded-xl border border-[var(--border)]">
+              {formatIntroducedAt(form.introduced_at)}
+            </div>
+          </Field>
+        )}
+
         <button
           type="submit"
           disabled={dateError}
@@ -213,4 +228,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </div>
   );
+}
+
+function formatIntroducedAt(isoString: string): string {
+  const date = new Date(isoString);
+  const dateStr = date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+  const daysElapsed = Math.floor((Date.now() - date.getTime()) / 86400000);
+  return `${dateStr} (D+${daysElapsed})`;
 }

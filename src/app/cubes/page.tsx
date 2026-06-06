@@ -4,7 +4,7 @@ import type * as ExcelJS from 'exceljs';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Cube, CATEGORIES, getStockStatus } from '@/types';
-import { getCubes, deleteCube, getSettings } from '@/lib/storage';
+import { getCubes, deleteCube, getSettings, backfillIntroducedAt } from '@/lib/storage';
 import CubeRow from '@/components/CubeRow';
 import ConfirmModal from '@/components/ConfirmModal';
 import { Plus, Search, Download, FileSpreadsheet, Trash2 } from 'lucide-react';
@@ -17,7 +17,10 @@ const STATUS_FILTERS = [
 ];
 
 export default function CubesPage() {
-  const [cubes, setCubes] = useState<Cube[]>(() => getCubes());
+  const [cubes, setCubes] = useState<Cube[]>(() => {
+    backfillIntroducedAt();
+    return getCubes();
+  });
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showDeleteZero, setShowDeleteZero] = useState(false);

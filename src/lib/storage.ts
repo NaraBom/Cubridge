@@ -1,9 +1,10 @@
-import { Cube, ConsumptionLog } from '@/types';
+import { Cube, ConsumptionLog, MealPlan } from '@/types';
 
 const CUBES_KEY = 'cubridge_cubes';
 const LOGS_KEY = 'cubridge_logs';
 const SETTINGS_KEY = 'cubridge_settings';
 const BABY_KEY = 'cubridge_baby';
+const MEAL_PLANS_KEY = 'cubridge_meal_plans';
 
 export interface BabyProfile {
   name: string;
@@ -131,13 +132,33 @@ export function addLog(log: Omit<ConsumptionLog, 'id'>): ConsumptionLog {
   const newLog: ConsumptionLog = { ...log, id: crypto.randomUUID() };
   saveLogs([newLog, ...logs]);
 
-  // deduct stock
+  // deduct stock, set introduced_at on first log
   const cubes = getCubes();
   const cube = cubes.find((c) => c.id === log.cube_id);
   if (cube) {
-    updateCube(cube.id, { quantity: Math.max(0, cube.quantity - log.quantity) });
+    updateCube(cube.id, {
+      quantity: Math.max(0, cube.quantity - log.quantity),
+      ...(!cube.introduced_at && { introduced_at: log.logged_at }),
+    });
   }
   return newLog;
+}
+
+export function backfillIntroducedAt() {
+  const cubes = getCubes();
+  const logs = getLogs();
+  let changed = false;
+  for (const cube of cubes) {
+    if (cube.introduced_at) continue;
+    const cubeLogs = logs.filter((l) => l.cube_id === cube.id);
+    if (cubeLogs.length === 0) continue;
+    const oldest = cubeLogs.reduce((a, b) =>
+      new Date(a.logged_at) < new Date(b.logged_at) ? a : b
+    );
+    updateCube(cube.id, { introduced_at: oldest.logged_at });
+    changed = true;
+  }
+  return changed;
 }
 
 export function updateLog(id: string, updates: Partial<Pick<ConsumptionLog, 'reaction' | 'notes'>>) {
@@ -158,6 +179,46 @@ export function deleteLog(id: string, restoreStock = false) {
   saveLogs(logs.filter((l) => l.id !== id));
 }
 
+export function getMealPlans(): MealPlan[] {
+  if (!isBrowser()) return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MEAL_PLANS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+
+export function markMealPlansLogged(date: string, meal_times: MealPlan['meal_time'][]) {
+  const plans = getMealPlans();
+  let changed = false;
+  for (const plan of plans) {
+    if (plan.date === date && meal_times.includes(plan.meal_time) && !plan.logged) {
+      plan.logged = true;
+      changed = true;
+    }
+  }
+  if (changed) saveMealPlans(plans);
+}
+
+export function saveMealPlans(plans: MealPlan[]) {
+  if (!isBrowser()) return;
+  localStorage.setItem(MEAL_PLANS_KEY, JSON.stringify(plans));
+}
+
+export function upsertMealPlan(date: string, meal_time: MealPlan['meal_time'], cube_ids: string[]) {
+  const plans = getMealPlans();
+  const idx = plans.findIndex((p) => p.date === date && p.meal_time === meal_time);
+  if (cube_ids.length === 0) {
+    if (idx !== -1) saveMealPlans(plans.filter((_, i) => i !== idx));
+    return;
+  }
+  if (idx !== -1) {
+    plans[idx] = { ...plans[idx], cube_ids, logged: false };
+  } else {
+    plans.push({ id: crypto.randomUUID(), date, meal_time, cube_ids, logged: false });
+  }
+  saveMealPlans(plans);
+}
+
 function daysFromNow(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
@@ -166,10 +227,10 @@ function daysFromNow(days: number): string {
 
 export function getSampleCubes(): Omit<Cube, 'id' | 'created_at' | 'updated_at'>[] {
   return [
-    { name: '브로콜리', emoji: '🥦', category: '채소', color_tag: '#A8C97F', quantity: 8, warning_threshold: 5, danger_threshold: 2, grams_per_cube: 30, expiry_date: daysFromNow(30), photo_url: null, notes: null },
-    { name: '당근', emoji: '🥕', category: '채소', color_tag: '#F0A06A', quantity: 3, warning_threshold: 5, danger_threshold: 2, grams_per_cube: 30, expiry_date: daysFromNow(2), photo_url: null, notes: null },
-    { name: '소고기', emoji: '🥩', category: '육류', color_tag: '#E87D7D', quantity: 1, warning_threshold: 4, danger_threshold: 2, grams_per_cube: 20, expiry_date: daysFromNow(-1), photo_url: null, notes: null },
-    { name: '고구마', emoji: '🍠', category: '채소', color_tag: '#F4C430', quantity: 12, warning_threshold: 5, danger_threshold: 2, grams_per_cube: 35, expiry_date: daysFromNow(45), photo_url: null, notes: null },
-    { name: '닭가슴살', emoji: '🍗', category: '육류', color_tag: '#7BAFD4', quantity: 6, warning_threshold: 4, danger_threshold: 2, grams_per_cube: 20, expiry_date: daysFromNow(7), photo_url: null, notes: null },
+    { name: '브로콜리', emoji: '🥦', category: '채소', color_tag: '#A8C97F', quantity: 8, warning_threshold: 5, danger_threshold: 2, grams_per_cube: 30, expiry_date: daysFromNow(30), photo_url: null, notes: null, introduced_at: null },
+    { name: '당근', emoji: '🥕', category: '채소', color_tag: '#F0A06A', quantity: 3, warning_threshold: 5, danger_threshold: 2, grams_per_cube: 30, expiry_date: daysFromNow(2), photo_url: null, notes: null, introduced_at: null },
+    { name: '소고기', emoji: '🥩', category: '육류', color_tag: '#E87D7D', quantity: 1, warning_threshold: 4, danger_threshold: 2, grams_per_cube: 20, expiry_date: daysFromNow(-1), photo_url: null, notes: null, introduced_at: null },
+    { name: '고구마', emoji: '🍠', category: '채소', color_tag: '#F4C430', quantity: 12, warning_threshold: 5, danger_threshold: 2, grams_per_cube: 35, expiry_date: daysFromNow(45), photo_url: null, notes: null, introduced_at: null },
+    { name: '닭가슴살', emoji: '🍗', category: '육류', color_tag: '#7BAFD4', quantity: 6, warning_threshold: 4, danger_threshold: 2, grams_per_cube: 20, expiry_date: daysFromNow(7), photo_url: null, notes: null, introduced_at: null },
   ];
 }

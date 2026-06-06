@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { Cube, getStockStatus } from '@/types';
 import { Minus, Plus, Trash2 } from 'lucide-react';
@@ -14,6 +14,13 @@ interface Props {
   onDelete?: (id: string) => void;
 }
 
+function formatIntroducedAt(isoString: string): string {
+  const date = new Date(isoString);
+  const dateStr = date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+  const daysElapsed = Math.floor((Date.now() - date.getTime()) / 86400000);
+  return `${dateStr} (D+${daysElapsed})`;
+}
+
 const STATUS_CONFIG = {
   ok:      { bar: 'bg-green-400',  text: 'text-green-600',  label: '충분' },
   warning: { bar: 'bg-yellow-400', text: 'text-yellow-600', label: '주의' },
@@ -23,9 +30,10 @@ const STATUS_CONFIG = {
 export default function CubeRow({ cube, expiryWarningDays = 7, onUpdate, onDelete }: Props) {
   const status = getStockStatus(cube.quantity, cube.warning_threshold, cube.danger_threshold);
   const { bar, text, label } = STATUS_CONFIG[status];
+  const [now] = useState(() => Date.now());
 
   const msUntilExpiry = cube.expiry_date
-    ? new Date(cube.expiry_date).getTime() - Date.now()
+    ? new Date(cube.expiry_date).getTime() - now
     : null;
   const isExpired      = msUntilExpiry !== null && msUntilExpiry < 0;
   const isExpiringSoon = msUntilExpiry !== null && msUntilExpiry >= 0 && msUntilExpiry < expiryWarningDays * 24 * 60 * 60 * 1000;
@@ -45,13 +53,6 @@ export default function CubeRow({ cube, expiryWarningDays = 7, onUpdate, onDelet
   const [dd,   setDd]   = useState(parsedDate[2] ?? '');
   const monthRef = useRef<HTMLInputElement>(null);
   const dayRef   = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editingExpiry) {
-      const p = cube.expiry_date ? cube.expiry_date.split('-') : ['', '', ''];
-      setYyyy(p[0] ?? ''); setMm(p[1] ?? ''); setDd(p[2] ?? '');
-    }
-  }, [editingExpiry, cube.expiry_date]);
 
   function saveExpiry() {
     const todayStr = new Date().toISOString().slice(0, 10);
@@ -164,7 +165,12 @@ export default function CubeRow({ cube, expiryWarningDays = 7, onUpdate, onDelet
             </div>
           ) : (
             <button
-              onClick={() => { setExpiryWarn(false); setEditingExpiry(true); }}
+              onClick={() => {
+                const p = cube.expiry_date ? cube.expiry_date.split('-') : ['', '', ''];
+                setYyyy(p[0] ?? ''); setMm(p[1] ?? ''); setDd(p[2] ?? '');
+                setExpiryWarn(false);
+                setEditingExpiry(true);
+              }}
               className="text-left w-full hover:underline decoration-dashed underline-offset-2"
             >
               {isExpired && cube.expiry_date && (
@@ -249,6 +255,13 @@ export default function CubeRow({ cube, expiryWarningDays = 7, onUpdate, onDelet
           }}
           onCancel={() => setShowDeleteConfirm(false)}
         />
+      )}
+
+      {/* 도입일 */}
+      {cube.introduced_at && (
+        <div className="text-xs text-gray-400 mt-1 pl-4">
+          도입일 {formatIntroducedAt(cube.introduced_at)}
+        </div>
       )}
 
       {/* 수량 도트 표시 */}
