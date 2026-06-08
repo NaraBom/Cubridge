@@ -5,7 +5,7 @@ import { ConsumptionLog, Cube } from '@/types';
 import { getCubes, getLogs } from '@/lib/storage';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid,
+  LineChart, Line, CartesianGrid, Cell,
 } from 'recharts';
 
 const CHART_COLORS = ['#E8734A', '#A8C97F', '#7BAFD4', '#F4C430', '#C47AC0', '#E87D7D', '#5BBF8E', '#F0A06A'];
@@ -47,24 +47,20 @@ export default function StatsPage() {
   }, [periodLogs, cubes]);
   const topIngredient = barChartData[0]?.name ?? null;
 
-  // 파이 차트: 소비 비율
-  const total = barChartData.reduce((s, d) => s + d.value, 0);
-  const pieData = barChartData.map((d) => ({ ...d, percent: total > 0 ? Math.round((d.value / total) * 100) : 0 }));
-
   // 재고 소진 예측
   const depletionForecast = useMemo(() => {
-    const periodDays = period === 'week' ? 7 : 30;
     return cubes
       .map((cube) => {
-        const consumed = periodLogs
-          .filter((l) => l.cube_id === cube.id)
-          .reduce((s, l) => s + l.quantity, 0);
-        const dailyAvg = consumed / periodDays;
-        const daysLeft = dailyAvg > 0 ? Math.ceil(cube.quantity / dailyAvg) : null;
+        const cubeLogs = periodLogs.filter((l) => l.cube_id === cube.id);
+        const consumed = cubeLogs.reduce((s, l) => s + l.quantity, 0);
+        // 실제 소비가 발생한 날짜 수 기준으로 일 사용량 계산
+        const activeDays = new Set(cubeLogs.map((l) => new Date(l.logged_at).toLocaleDateString('sv'))).size;
+        const dailyUsage = activeDays > 0 ? consumed / activeDays : 0;
+        const daysLeft = dailyUsage > 0 ? Math.ceil(cube.quantity / dailyUsage) : null;
         const depletionDate = daysLeft != null
           ? new Date(Date.now() + daysLeft * 86400000).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })
           : null;
-        return { cube, consumed, dailyAvg, daysLeft, depletionDate };
+        return { cube, consumed, dailyUsage, daysLeft, depletionDate };
       })
       .filter((r) => r.consumed > 0 || r.cube.quantity > 0)
       .sort((a, b) => {
@@ -73,7 +69,7 @@ export default function StatsPage() {
         if (b.daysLeft == null) return -1;
         return a.daysLeft - b.daysLeft;
       });
-  }, [cubes, periodLogs, period]);
+  }, [cubes, periodLogs]);
 
   // 라인 차트: 선택 큐브 재고 추이 (시뮬레이션)
   const cubeLogs = useMemo(
@@ -187,30 +183,6 @@ export default function StatsPage() {
             </ResponsiveContainer>
           </ChartCard>
 
-          {/* 파이 차트 */}
-          <ChartCard title="소비 비율">
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={({ name, percent }) => `${name} ${percent}%`}
-                  labelLine={false}
-                >
-                  {pieData.map((_, i) => (
-                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Legend />
-                <Tooltip formatter={(v) => [`${v}개`, '소비량']} />
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
           {/* 라인 차트 */}
           <ChartCard
             title="재고 변화 추이"
@@ -221,7 +193,7 @@ export default function StatsPage() {
                 className="text-xs border border-[var(--border)] rounded-lg px-2 py-1 bg-white focus:outline-none"
               >
                 {cubes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id}>{c.name} ({c.grams_per_cube}g)</option>
                 ))}
               </select>
             }
@@ -251,12 +223,12 @@ export default function StatsPage() {
                     <tr className="text-gray-400 border-b border-gray-100">
                       <th className="text-left py-2 font-medium">재료</th>
                       <th className="text-right py-2 font-medium">현재 재고</th>
-                      <th className="text-right py-2 font-medium">일 평균</th>
+                      <th className="text-right py-2 font-medium">일 사용량</th>
                       <th className="text-right py-2 font-medium">소진 예정</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {depletionForecast.map(({ cube, dailyAvg, daysLeft, depletionDate }) => {
+                    {depletionForecast.map(({ cube, dailyUsage, daysLeft, depletionDate }) => {
                       const urgent = daysLeft != null && daysLeft <= 3;
                       const warning = daysLeft != null && daysLeft <= 7 && !urgent;
                       return (
@@ -266,7 +238,7 @@ export default function StatsPage() {
                             {cube.name}
                           </td>
                           <td className="text-right py-2 text-gray-600">{cube.quantity}개</td>
-                          <td className="text-right py-2 text-gray-600">{dailyAvg > 0 ? dailyAvg.toFixed(1) : '-'}</td>
+                          <td className="text-right py-2 text-gray-600">{dailyUsage > 0 ? `${dailyUsage.toFixed(1)}개` : '-'}</td>
                           <td className={`text-right py-2 font-medium ${urgent ? 'text-red-500' : warning ? 'text-orange-400' : 'text-gray-600'}`}>
                             {depletionDate ? `${depletionDate} (${daysLeft}일)` : '소비 없음'}
                           </td>

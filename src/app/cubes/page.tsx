@@ -4,7 +4,7 @@ import type * as ExcelJS from 'exceljs';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Cube, CATEGORIES, getStockStatus } from '@/types';
-import { getCubes, deleteCube, getSettings, backfillIntroducedAt } from '@/lib/storage';
+import { getCubes, saveCubes, deleteCube, getSettings, backfillIntroducedAt } from '@/lib/storage';
 import CubeRow from '@/components/CubeRow';
 import ConfirmModal from '@/components/ConfirmModal';
 import { Plus, Search, Download, FileSpreadsheet, Trash2 } from 'lucide-react';
@@ -24,6 +24,7 @@ export default function CubesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showDeleteZero, setShowDeleteZero] = useState(false);
+  const [showDeleteAll, setShowDeleteAll] = useState(false);
   const expiryWarningDays = getSettings().expiryWarningDays;
 
   function refresh() {
@@ -31,6 +32,12 @@ export default function CubesPage() {
   }
 
   const zeroCubes = useMemo(() => cubes.filter((c) => c.quantity === 0), [cubes]);
+
+  function deleteAll() {
+    saveCubes([]);
+    setCubes([]);
+    setShowDeleteAll(false);
+  }
 
   function deleteAllZero() {
     zeroCubes.forEach((c) => deleteCube(c.id));
@@ -172,13 +179,26 @@ export default function CubesPage() {
 
   // 카테고리별로 그룹화 (큐브가 있는 카테고리만)
   const groups = useMemo(() => CATEGORIES
-    .map((cat) => ({ cat, items: filtered.filter((c) => c.category === cat) }))
+    .map((cat) => ({
+      cat,
+      items: filtered.filter((c) => c.category === cat).sort((a, b) => a.name.localeCompare(b.name, 'ko')),
+    }))
     .filter(({ items }) => items.length > 0), [filtered]);
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex flex-wrap items-center gap-2 mb-6">
         <h1 className="text-2xl font-bold text-gray-800 mr-auto">큐브 목록</h1>
+        {cubes.length > 0 && (
+          <button
+            onClick={() => setShowDeleteAll(true)}
+            className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-500 px-3 py-2 rounded-xl hover:bg-red-100 transition text-sm font-medium cursor-pointer"
+          >
+            <Trash2 size={16} />
+            <span className="hidden sm:inline">전체 삭제</span>
+            <span className="sm:hidden">전체 삭제</span>
+          </button>
+        )}
         {zeroCubes.length > 0 && (
           <button
             onClick={() => setShowDeleteZero(true)}
@@ -270,6 +290,16 @@ export default function CubesPage() {
         </div>
       )}
 
+      {showDeleteAll && (
+        <ConfirmModal
+          title="큐브 전체 삭제"
+          message={`큐브 ${cubes.length}종을 모두 삭제할까요? 이 작업은 되돌릴 수 없어요.`}
+          confirmLabel="전체 삭제"
+          danger
+          onConfirm={deleteAll}
+          onCancel={() => setShowDeleteAll(false)}
+        />
+      )}
       {showDeleteZero && (
         <ConfirmModal
           title="0개 큐브 일괄 삭제"

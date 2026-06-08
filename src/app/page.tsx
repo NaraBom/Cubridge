@@ -3,19 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Cube, getStockStatus, MEAL_TIMES } from '@/types';
-import { getCubes, getLogs, getSampleCubes, addCube, getSettings } from '@/lib/storage';
+import { getCubes, getLogs, getSettings } from '@/lib/storage';
 import CubeRow from '@/components/CubeRow';
 import { AlertCircle, Box, Plus } from 'lucide-react';
 
 export default function DashboardPage() {
-  const [cubes, setCubes] = useState<Cube[]>(() => {
-    const stored = getCubes();
-    if (stored.length === 0) {
-      getSampleCubes().forEach((s) => addCube(s));
-      return getCubes();
-    }
-    return stored;
-  });
+  const [cubes, setCubes] = useState<Cube[]>(() => getCubes());
   const [logs] = useState(() => getLogs());
   const [expiryWarningDays] = useState(() => getSettings().expiryWarningDays);
 
@@ -25,7 +18,23 @@ export default function DashboardPage() {
 
   const warnCubes = cubes.filter((c) => getStockStatus(c.quantity, c.warning_threshold, c.danger_threshold) === 'warning');
   const dangerCubes = cubes.filter((c) => getStockStatus(c.quantity, c.warning_threshold, c.danger_threshold) === 'danger');
-  const alertCubes = [...dangerCubes, ...warnCubes];
+
+  function sortByStatusThenExpiry(a: Cube, b: Cube) {
+    // 기한 없음은 맨 앞, 그 안에서 재고 상태 순
+    const statusOrder = { danger: 0, warning: 1, ok: 2 };
+    if (!a.expiry_date && !b.expiry_date) {
+      return statusOrder[getStockStatus(a.quantity, a.warning_threshold, a.danger_threshold)]
+           - statusOrder[getStockStatus(b.quantity, b.warning_threshold, b.danger_threshold)];
+    }
+    if (!a.expiry_date) return -1;
+    if (!b.expiry_date) return 1;
+    const statusDiff = statusOrder[getStockStatus(a.quantity, a.warning_threshold, a.danger_threshold)]
+                     - statusOrder[getStockStatus(b.quantity, b.warning_threshold, b.danger_threshold)];
+    if (statusDiff !== 0) return statusDiff;
+    return a.expiry_date.localeCompare(b.expiry_date);
+  }
+
+  const alertCubes = [...dangerCubes, ...warnCubes].sort(sortByStatusThenExpiry);
 
   const today = new Date().toDateString();
   const todayLogs = logs.filter((l) => new Date(l.logged_at).toDateString() === today);
@@ -88,11 +97,7 @@ export default function DashboardPage() {
         </div>
         <div className="bg-white rounded-2xl border border-[var(--border)] divide-y divide-gray-100 max-h-[480px] overflow-y-auto">
           {[...cubes]
-            .sort((a, b) => {
-              const order = { danger: 0, warning: 1, ok: 2 };
-              return order[getStockStatus(a.quantity, a.warning_threshold, a.danger_threshold)] -
-                     order[getStockStatus(b.quantity, b.warning_threshold, b.danger_threshold)];
-            })
+            .sort(sortByStatusThenExpiry)
             .map((cube) => (
               <CubeRow key={cube.id} cube={cube} expiryWarningDays={expiryWarningDays} onUpdate={refresh} onDelete={refresh} />
             ))}

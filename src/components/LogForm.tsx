@@ -1,6 +1,6 @@
 'use client';
 
-import { Cube } from '@/types';
+import { Cube, CATEGORIES } from '@/types';
 import { Plus, X } from 'lucide-react';
 import DateInput from '@/components/DateInput';
 
@@ -83,10 +83,14 @@ export default function LogForm({
                 style={{ width: 0 }}
               >
                 <option value="">큐브 선택</option>
-                {cubes.map((c) => (
-                  <option key={c.id} value={c.id} disabled={c.quantity === 0}>
-                    {c.quantity === 0 ? `[재고없음] ${c.name}` : `${c.name} (${c.quantity}개)`}
-                  </option>
+                {CATEGORIES.filter((cat) => cubes.some((c) => c.category === cat)).map((cat) => (
+                  <optgroup key={cat} label={cat}>
+                    {cubes.filter((c) => c.category === cat).sort((a, b) => a.name.localeCompare(b.name, 'ko')).map((c) => (
+                      <option key={c.id} value={c.id} disabled={c.quantity === 0}>
+                        {c.quantity === 0 ? `[재고없음] ${c.name} (${c.grams_per_cube}g)` : `${c.name} (${c.quantity}개 · ${c.grams_per_cube}g)`}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
               <button

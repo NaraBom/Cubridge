@@ -1,9 +1,10 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
+import { useHolidays } from '@/hooks/useHolidays';
 import { Cube, ConsumptionLog, Reaction } from '@/types';
-import { getCubes, getLogs, addLog, deleteLog, deleteCube, updateLog } from '@/lib/storage';
-import { Plus } from 'lucide-react';
+import { getCubes, getLogs, saveLogs, addLog, deleteLog, deleteCube, updateLog } from '@/lib/storage';
+import { Plus, Trash2 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import LogCalendar from '@/components/LogCalendar';
 import LogList from '@/components/LogList';
@@ -26,6 +27,7 @@ export default function LogsPage() {
   const [todayKey, setTodayKey] = useState(() => toDateKey(new Date()));
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
+  const holidays = useHolidays([viewYear - 1, viewYear, viewYear + 1].filter((y, i, a) => a.indexOf(y) === i));
   const [selectedDate, setSelectedDate] = useState<string>(() => toDateKey(new Date()));
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export default function LogsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<MergedLog | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MergedLog | null>(null);
+  const [showDeleteAll, setShowDeleteAll] = useState(false);
   const [depleted, setDepleted] = useState<Cube | null>(null);
   const [form, setForm] = useState({
     error: null as string | null,
@@ -227,17 +230,39 @@ export default function LogsPage() {
     setDeleteTarget(null);
   }
 
+  function handleDeleteAll(restoreStock: boolean) {
+    if (restoreStock) {
+      logs.forEach((log) => deleteLog(log.id, true));
+    } else {
+      saveLogs([]);
+    }
+    setLogs([]);
+    setCubes(getCubes());
+    setShowDeleteAll(false);
+  }
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">소비 기록</h1>
-        <button
-          onClick={openForm}
-          className="flex items-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-xl hover:opacity-90 transition text-sm font-medium"
-        >
-          <Plus size={16} />
-          기록 추가
-        </button>
+        <div className="flex items-center gap-2">
+          {logs.length > 0 && (
+            <button
+              onClick={() => setShowDeleteAll(true)}
+              className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition"
+            >
+              <Trash2 size={14} />
+              전체 삭제
+            </button>
+          )}
+          <button
+            onClick={openForm}
+            className="flex items-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-xl hover:opacity-90 transition text-sm font-medium"
+          >
+            <Plus size={16} />
+            기록 추가
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col xl:flex-row gap-5">
@@ -248,6 +273,8 @@ export default function LogsPage() {
           todayKey={todayKey}
           cells={cells}
           logsByDate={logsByDate}
+          cubes={cubes}
+          holidays={holidays}
           onPrevMonth={prevMonth}
           onNextMonth={nextMonth}
           onSelectDate={setSelectedDate}
@@ -256,6 +283,7 @@ export default function LogsPage() {
         <LogList
           selectedLogs={selectedLogs}
           selectedDateLabel={selectedDateLabel}
+          cubes={cubes}
           onAddClick={openForm}
           onDeleteClick={setDeleteTarget}
           onEditClick={openEditForm}
@@ -293,6 +321,20 @@ export default function LogsPage() {
           onExtra={() => handleDelete(true)}
           onConfirm={() => handleDelete(false)}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {showDeleteAll && (
+        <ConfirmModal
+          title="소비 기록 전체 삭제"
+          message={`기록된 소비 기록 ${logs.length}건을 모두 삭제할까요?`}
+          extraLabel="재고도 복원하고 삭제"
+          confirmLabel="기록만 삭제"
+          cancelLabel="취소"
+          danger
+          onExtra={() => handleDeleteAll(true)}
+          onConfirm={() => handleDeleteAll(false)}
+          onCancel={() => setShowDeleteAll(false)}
         />
       )}
 

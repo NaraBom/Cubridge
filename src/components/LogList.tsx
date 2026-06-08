@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ConsumptionLog, Reaction, REACTIONS } from '@/types';
+import { ConsumptionLog, Cube, Reaction, REACTIONS } from '@/types';
 import { Pencil, Trash2, UtensilsCrossed } from 'lucide-react';
 
 interface MergedLog extends ConsumptionLog {
@@ -11,6 +11,7 @@ interface MergedLog extends ConsumptionLog {
 interface Props {
   selectedLogs: MergedLog[];
   selectedDateLabel: string;
+  cubes: Cube[];
   onAddClick: () => void;
   onDeleteClick: (log: MergedLog) => void;
   onEditClick: (log: MergedLog) => void;
@@ -64,7 +65,7 @@ function ReactionBadge({ log, onChange }: { log: MergedLog; onChange: (r: Reacti
   );
 }
 
-export default function LogList({ selectedLogs, selectedDateLabel, onAddClick, onDeleteClick, onEditClick, onReactionChange }: Props) {
+export default function LogList({ selectedLogs, selectedDateLabel, cubes, onAddClick, onDeleteClick, onEditClick, onReactionChange }: Props) {
   return (
     <div className="flex-1 min-w-0">
       <div className="flex items-center justify-between mb-3">
@@ -93,6 +94,7 @@ export default function LogList({ selectedLogs, selectedDateLabel, onAddClick, o
                   </span>
                   <span className="w-2 h-2 rounded-full bg-[var(--primary)] flex-shrink-0" />
                   <span className="font-semibold text-gray-800">{log.cube_name}</span>
+                  <span className="text-xs text-gray-400">{cubes.find((c) => c.id === log.cube_id)?.grams_per_cube ?? ''}g</span>
                   {log.notes && (
                     <span className="text-xs text-gray-400 truncate max-w-32">{log.notes}</span>
                   )}

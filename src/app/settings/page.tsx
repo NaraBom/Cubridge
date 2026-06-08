@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { AppSettings, getSettings, saveSettings, clearAllData, getCubes, getLogs, getSampleCubes, addCube, saveCubes, saveLogs, saveBabyProfile, getBabyProfile } from '@/lib/storage';
-import { Bell, CalendarClock, Package, RotateCcw, Trash2, ChevronRight, Check, Upload } from 'lucide-react';
+import { Bell, CalendarClock, Package, RotateCcw, Trash2, ChevronRight, Check, Upload, CalendarDays } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 
 type ConfirmType = 'reset' | 'clearAll' | 'import' | null;
@@ -230,6 +230,26 @@ export default function SettingsPage() {
               className="w-16 text-center border border-[var(--border)] rounded-lg py-1.5 text-sm focus:outline-none focus:border-[var(--primary)]"
             />
             <span className="text-sm text-gray-500">g</span>
+          </div>
+        </SettingRow>
+      </Section>
+
+      {/* 달력 */}
+      <Section icon={<CalendarDays size={18} />} title="달력">
+        <SettingRow label="주 시작 요일" description="식단 계획 페이지의 달력 시작 요일">
+          <div className="flex rounded-xl border border-[var(--border)] overflow-hidden text-sm">
+            <button
+              onClick={() => updateSetting('weekStartsOnSunday', false)}
+              className={`px-4 py-1.5 transition ${!settings.weekStartsOnSunday ? 'bg-[var(--primary)] text-white font-semibold' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              월요일
+            </button>
+            <button
+              onClick={() => updateSetting('weekStartsOnSunday', true)}
+              className={`px-4 py-1.5 transition ${settings.weekStartsOnSunday ? 'bg-[var(--primary)] text-white font-semibold' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              일요일
+            </button>
           </div>
         </SettingRow>
       </Section>
