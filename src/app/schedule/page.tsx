@@ -5,7 +5,7 @@ import { useHolidays } from '@/hooks/useHolidays';
 import { Cube, MealPlan, MEAL_TIMES, CATEGORIES } from '@/types';
 import { getCubes, getLogs, getMealPlans, getSettings, upsertMealPlan, addLog, deleteLog, markMealPlansLogged, deleteMealPlansByMealTime, deleteMealPlansByDate } from '@/lib/storage';
 import { isHoliday } from '@/lib/holidays';
-import { ChevronLeft, ChevronRight, X, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 type MealTime = MealPlan['meal_time'];
 const MEAL_ORDER: MealTime[] = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -38,9 +38,9 @@ const DAY_LABELS_SUN = ['일', '월', '화', '수', '목', '금', '토'];
 const MEAL_PLAN_CATEGORY_ORDER = ['밥', '육류', '채소', '과일', '생선', '곡물', '기타'] as const;
 const MEAL_COLORS: Record<MealTime, string> = {
   breakfast: 'bg-amber-50 border-amber-200 text-amber-700',
-  lunch:     'bg-green-50 border-green-200 text-green-700',
-  dinner:    'bg-blue-50 border-blue-200 text-blue-700',
-  snack:     'bg-purple-50 border-purple-200 text-purple-700',
+  lunch:     'bg-teal-50 border-teal-200 text-teal-700',
+  dinner:    'bg-indigo-50 border-indigo-200 text-indigo-700',
+  snack:     'bg-rose-50 border-rose-200 text-rose-700',
 };
 
 interface CubeSelectorProps {
@@ -87,8 +87,8 @@ function CubeSelector({ cubes, selected, selectedCustomItems, onClose, onSave }:
   }
 
   return (
-    <div className="fixed inset-0 bg-black/30 z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm flex flex-col max-h-[80vh]">
+    <div className="fixed inset-0 bg-black/30 z-50 flex items-end sm:items-center justify-center px-4 pt-4 pb-10 sm:p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm flex flex-col max-h-[75vh] sm:max-h-[80vh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
           <span className="font-semibold text-gray-800">큐브 선택</span>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100"><X size={18} /></button>
@@ -193,21 +193,21 @@ function CubeSelector({ cubes, selected, selectedCustomItems, onClose, onSave }:
 
 function MealDetailModal({
   date, mealTime, plan, cubes, isPast,
-  onClose, onEdit,
+  onClose, onEdit, getDeletedCubeName,
 }: {
   date: string; mealTime: MealTime; plan: MealPlan | undefined; cubes: Cube[]; isPast: boolean;
-  onClose: () => void; onEdit: () => void;
+  onClose: () => void; onEdit: () => void; getDeletedCubeName: (id: string) => string;
 }) {
   const cubeCounts = (plan?.cube_ids ?? []).reduce<Record<string, number>>((acc, id) => {
     acc[id] = (acc[id] ?? 0) + 1; return acc;
   }, {});
   const entries = Object.entries(cubeCounts).map(([id, count]) => ({
-    cube: cubes.find((c) => c.id === id), count,
-  })).filter((e) => e.cube).sort((a, b) => {
-    const ai = MEAL_PLAN_CATEGORY_ORDER.indexOf(a.cube!.category as typeof MEAL_PLAN_CATEGORY_ORDER[number]);
-    const bi = MEAL_PLAN_CATEGORY_ORDER.indexOf(b.cube!.category as typeof MEAL_PLAN_CATEGORY_ORDER[number]);
+    cube: cubes.find((c) => c.id === id) ?? null, count, id,
+  })).sort((a, b) => {
+    const ai = a.cube ? MEAL_PLAN_CATEGORY_ORDER.indexOf(a.cube.category as typeof MEAL_PLAN_CATEGORY_ORDER[number]) : 99;
+    const bi = b.cube ? MEAL_PLAN_CATEGORY_ORDER.indexOf(b.cube.category as typeof MEAL_PLAN_CATEGORY_ORDER[number]) : 99;
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-  }) as { cube: Cube; count: number }[];
+  });
   const customItems = plan?.custom_items ?? [];
   const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' });
 
@@ -226,14 +226,20 @@ function MealDetailModal({
             <p className="text-sm text-gray-400 text-center py-6">등록된 식단이 없어요</p>
           ) : (
             <>
-              {entries.map(({ cube, count }) => (
-                <div key={cube.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${MEAL_COLORS[mealTime]} ${isPast ? 'opacity-70' : ''}`}>
-                  <span className="text-lg leading-none">{cube.emoji}</span>
-                  <span className="flex-1 text-sm font-medium">{cube.name}</span>
-                  <span className="text-xs opacity-60">{cube.grams_per_cube}g</span>
-                  {count > 1 && <span className="text-xs font-bold">×{count}</span>}
-                </div>
-              ))}
+              {entries.map(({ cube, count, id }) => {
+                const snapshot = !cube ? plan?.cube_snapshots?.[id] : undefined;
+                const displayName = cube ? cube.name : (snapshot?.name ?? getDeletedCubeName(id));
+                const isDeleted = !cube;
+                const isLoggedDeleted = isDeleted && plan?.logged;
+                return (
+                  <div key={id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${!isDeleted || isLoggedDeleted || snapshot ? MEAL_COLORS[mealTime] : 'bg-gray-50 border-gray-200 text-gray-400'} ${isPast ? 'opacity-70' : ''}`}>
+                    {(cube?.emoji || snapshot?.emoji) && <span className="text-lg leading-none">{cube?.emoji ?? snapshot?.emoji}</span>}
+                    <span className="flex-1 text-sm font-medium">{displayName}</span>
+                    {(cube?.grams_per_cube != null || snapshot?.grams != null) && <span className="text-xs opacity-60">{cube?.grams_per_cube ?? snapshot?.grams}g</span>}
+                    {count > 1 && <span className="text-xs font-bold">×{count}</span>}
+                  </div>
+                );
+              })}
               {customItems.map((item, i) => (
                 <div key={`c-${i}`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border bg-purple-50 border-purple-200 text-purple-700">
                   <span className="flex-1 text-sm font-medium">{item.name}</span>
@@ -255,6 +261,7 @@ function MealDetailModal({
 export default function SchedulePage() {
   const [cubes, setCubes] = useState<Cube[]>(() => getCubes());
   const [plans, setPlans] = useState<MealPlan[]>(() => getMealPlans());
+  const [logs] = useState(() => getLogs());
   const [weekBase, setWeekBase] = useState(() => new Date());
   const [editing, setEditing] = useState<{ date: string; meal_time: MealTime } | null>(null);
   const [viewModal, setViewModal] = useState<{ date: string; meal_time: MealTime } | null>(null);
@@ -271,6 +278,12 @@ export default function SchedulePage() {
   const weekYears = useMemo(() => [...new Set(weekDates.map((d) => d.getFullYear()))], [weekDates]);
   const holidays = useHolidays(weekYears);
 
+  // 삭제된 큐브의 이름을 소비 기록에서 찾기
+  function getCubeNameFromLogs(cubeId: string, date: string, mealTime: MealTime): string {
+    const log = logs.find((l) => l.cube_id === cubeId && l.logged_at.startsWith(date) && l.meal_time === mealTime);
+    return log?.cube_name ?? '삭제된 큐브';
+  }
+
   function prevWeek() {
     setWeekBase((d) => { const n = new Date(d); n.setDate(d.getDate() - 7); return n; });
   }
@@ -284,7 +297,13 @@ export default function SchedulePage() {
   }
 
   function handleSave(date: string, meal_time: MealTime, ids: string[], customItems: MealPlan['custom_items'] = []) {
-    upsertMealPlan(date, meal_time, ids, customItems);
+    // 현재 큐브 목록에서 스냅샷 생성 (이름·이모지·용량)
+    const cubeSnapshots: NonNullable<MealPlan['cube_snapshots']> = {};
+    for (const id of ids) {
+      const cube = cubes.find((c) => c.id === id);
+      if (cube) cubeSnapshots[id] = { name: cube.name, emoji: cube.emoji ?? '', grams: cube.grams_per_cube };
+    }
+    upsertMealPlan(date, meal_time, ids, customItems, cubeSnapshots);
     setPlans(getMealPlans());
   }
 
@@ -394,6 +413,12 @@ export default function SchedulePage() {
         </div>
       )}
 
+      {/* 범례 */}
+      <div className="flex items-center gap-3 mb-3 text-xs text-gray-500">
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-green-100 border border-green-300 flex-shrink-0" />기록됨</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-red-100 border border-red-300 flex-shrink-0" />미기록</span>
+      </div>
+
       {/* 주 네비게이션 */}
       <div className="flex items-center justify-center gap-3 mb-4">
         <button onClick={prevWeek} className="p-1.5 rounded-lg hover:bg-gray-100 transition"><ChevronLeft size={18} /></button>
@@ -440,40 +465,39 @@ export default function SchedulePage() {
               acc[id] = (acc[id] ?? 0) + 1; return acc;
             }, {});
             const plannedEntries = Object.entries(cubeCounts).map(([id, count]) => ({
-              cube: cubes.find((c) => c.id === id),
-              count,
-            })).filter((e) => e.cube).sort((a, b) => {
-              const ai = MEAL_PLAN_CATEGORY_ORDER.indexOf(a.cube!.category as typeof MEAL_PLAN_CATEGORY_ORDER[number]);
-              const bi = MEAL_PLAN_CATEGORY_ORDER.indexOf(b.cube!.category as typeof MEAL_PLAN_CATEGORY_ORDER[number]);
+              cube: cubes.find((c) => c.id === id) ?? null,
+              count, id,
+            })).sort((a, b) => {
+              const ai = a.cube ? MEAL_PLAN_CATEGORY_ORDER.indexOf(a.cube.category as typeof MEAL_PLAN_CATEGORY_ORDER[number]) : 99;
+              const bi = b.cube ? MEAL_PLAN_CATEGORY_ORDER.indexOf(b.cube.category as typeof MEAL_PLAN_CATEGORY_ORDER[number]) : 99;
               return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-            }) as { cube: Cube; count: number }[];
+            });
             const isPast = new Date(selectedDate + 'T00:00:00') < today && selectedDate !== todayKey;
 
             return (
-              <div key={mealTime} onClick={() => setViewModal({ date: selectedDate, meal_time: mealTime })} className={`rounded-2xl border p-3 cursor-pointer hover:shadow-sm transition-shadow ${isPast ? 'bg-gray-50/50 border-gray-100' : plan?.logged ? 'bg-green-50/50 border-green-200' : 'bg-white border-[var(--border)]'}`}>
+              <div key={mealTime} onClick={() => setViewModal({ date: selectedDate, meal_time: mealTime })} className={`rounded-2xl border p-3 cursor-pointer hover:shadow-sm transition-shadow ${plan?.logged ? 'bg-white border-green-200' : (plannedEntries.length > 0 || (plan?.custom_items ?? []).length > 0) ? 'bg-red-50/30 border-red-200' : 'bg-white border-[var(--border)]'} ${isPast ? 'opacity-80' : ''}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-semibold text-gray-600">{MEAL_TIMES[mealTime]}</span>
                   <div className="flex items-center gap-2">
-                    {plan?.logged && (
-                      <span className="flex items-center gap-1 text-[11px] text-green-500 font-medium">
-                        <CheckCircle2 size={11} /> 기록됨
-                      </span>
-                    )}
                     {plans.some((p) => p.date === selectedDate && p.meal_time === mealTime) && (
                       <button onClick={() => setDeleteAllMealTime(mealTime)} className="text-[10px] text-red-400 hover:text-red-600 transition">전체 삭제</button>
                     )}
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  {plannedEntries.map(({ cube, count }) => (
-                    <div key={cube.id} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm ${MEAL_COLORS[mealTime]} ${isPast ? 'opacity-70' : ''}`}>
-                      <span className="leading-none">{cube.emoji}</span>
-                      <span className="flex-1 font-medium truncate">{cube.name}</span>
-                      <span className="text-xs opacity-60">{cube.grams_per_cube}g</span>
+                  {plannedEntries.map(({ cube, count, id }) => {
+                    const snapshot = !cube ? plan?.cube_snapshots?.[id] : undefined;
+                    const displayName = cube ? cube.name : (snapshot?.name ?? (plan?.logged ? getCubeNameFromLogs(id, selectedDate, mealTime) : '삭제된 큐브'));
+                    return (
+                    <div key={id} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm ${(cube || snapshot) ? MEAL_COLORS[mealTime] : 'bg-gray-50 border-gray-200 text-gray-400'} ${isPast ? 'opacity-70' : ''}`}>
+                      {(cube?.emoji || snapshot?.emoji) && <span className="leading-none">{cube?.emoji ?? snapshot?.emoji}</span>}
+                      <span className="flex-1 font-medium truncate">{displayName}</span>
+                      {(cube?.grams_per_cube != null || snapshot?.grams != null) && <span className="text-xs opacity-60">{cube?.grams_per_cube ?? snapshot?.grams}g</span>}
                       {count > 1 && <span className="font-bold text-xs">×{count}</span>}
-                      <button onClick={(e) => { e.stopPropagation(); removeCube(selectedDate, mealTime, cube.id, cube.name); }} className="text-red-400 hover:text-red-600 transition flex-shrink-0"><X size={12} /></button>
+                      <button onClick={(e) => { e.stopPropagation(); removeCube(selectedDate, mealTime, id, displayName); }} className="text-red-400 hover:text-red-600 transition flex-shrink-0"><X size={12} /></button>
                     </div>
-                  ))}
+                    );
+                  })}
                   {(plan?.custom_items ?? []).map((item, i) => (
                     <div key={`custom-${i}`} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm bg-purple-50 border-purple-200 text-purple-700 ${isPast ? 'opacity-70' : ''}`}>
                       <span className="flex-1 font-medium truncate">{item.name}</span>
@@ -555,43 +579,42 @@ export default function SchedulePage() {
                     acc[id] = (acc[id] ?? 0) + 1; return acc;
                   }, {});
                   const plannedEntries = Object.entries(cubeCounts).map(([id, count]) => ({
-                    cube: cubes.find((c) => c.id === id),
-                    count,
-                  })).filter((e) => e.cube).sort((a, b) => {
-                    const ai = MEAL_PLAN_CATEGORY_ORDER.indexOf(a.cube!.category as typeof MEAL_PLAN_CATEGORY_ORDER[number]);
-                    const bi = MEAL_PLAN_CATEGORY_ORDER.indexOf(b.cube!.category as typeof MEAL_PLAN_CATEGORY_ORDER[number]);
+                    cube: cubes.find((c) => c.id === id) ?? null,
+                    count, id,
+                  })).sort((a, b) => {
+                    const ai = a.cube ? MEAL_PLAN_CATEGORY_ORDER.indexOf(a.cube.category as typeof MEAL_PLAN_CATEGORY_ORDER[number]) : 99;
+                    const bi = b.cube ? MEAL_PLAN_CATEGORY_ORDER.indexOf(b.cube.category as typeof MEAL_PLAN_CATEGORY_ORDER[number]) : 99;
                     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-                  }) as { cube: Cube; count: number }[];
+                  });
                   const isPast = date < today && !isSameDay(date, today);
 
                   return (
                     <td key={dateKey} className="p-1 align-top">
-                      <div onClick={() => setViewModal({ date: dateKey, meal_time: mealTime })} className={`min-h-[144px] rounded-xl border p-1.5 flex flex-col gap-1 transition-colors overflow-hidden cursor-pointer hover:shadow-sm ${
-                        isPast ? 'bg-gray-50/50 border-gray-100'
-                        : plan?.logged ? 'bg-green-50/50 border-green-200'
+                      <div onClick={() => setViewModal({ date: dateKey, meal_time: mealTime })} className={`min-h-[144px] rounded-xl border p-1.5 flex flex-col gap-1 transition-colors overflow-hidden cursor-pointer hover:shadow-sm ${isPast ? 'opacity-80' : ''} ${
+                        plan?.logged ? 'bg-green-50 border-green-300'
+                        : (plannedEntries.length > 0 || (plan?.custom_items ?? []).length > 0) ? 'bg-red-50 border-red-300'
                         : 'bg-white border-[var(--border)] hover:border-gray-300'
                       }`}>
-                        {plan?.logged && (
-                          <div className="flex items-center gap-1 text-[10px] text-green-500 font-medium px-0.5">
-                            <CheckCircle2 size={10} /> 기록됨
-                          </div>
-                        )}
-                        {plannedEntries.map(({ cube, count }) => (
+                        {plannedEntries.map(({ cube, count, id }) => {
+                          const snapshot = !cube ? plan?.cube_snapshots?.[id] : undefined;
+                          const displayName = cube ? cube.name : (snapshot?.name ?? (plan?.logged ? getCubeNameFromLogs(id, dateKey, mealTime) : '삭제된 큐브'));
+                          return (
                           <div
-                            key={cube.id}
-                            className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-lg border w-full ${MEAL_COLORS[mealTime]} ${isPast ? 'opacity-70' : ''}`}
+                            key={id}
+                            className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-lg border w-full ${(cube || snapshot) ? MEAL_COLORS[mealTime] : 'bg-gray-50 border-gray-200 text-gray-400'} ${isPast ? 'opacity-70' : ''}`}
                           >
-                            <span className="leading-none">{cube.emoji}</span>
-                            <span className="truncate flex-1 font-medium min-w-0">{cube.name}</span>
+                            {(cube?.emoji || snapshot?.emoji) && <span className="leading-none">{cube?.emoji ?? snapshot?.emoji}</span>}
+                            <span className="truncate flex-1 font-medium min-w-0">{displayName}</span>
                             {count > 1 && <span className="font-bold flex-shrink-0">×{count}</span>}
                             <button
-                              onClick={(e) => { e.stopPropagation(); removeCube(dateKey, mealTime, cube.id, cube.name); }}
+                              onClick={(e) => { e.stopPropagation(); removeCube(dateKey, mealTime, id, displayName); }}
                               className="text-red-400 hover:text-red-600 transition flex-shrink-0"
                             >
                               <X size={10} />
                             </button>
                           </div>
-                        ))}
+                          );
+                        })}
                         {(plan?.custom_items ?? []).map((item, i) => (
                           <div
                             key={`custom-${i}`}
@@ -746,6 +769,7 @@ export default function SchedulePage() {
             isPast={vIsPast}
             onClose={() => setViewModal(null)}
             onEdit={() => { setEditing({ date: viewModal.date, meal_time: viewModal.meal_time }); setViewModal(null); }}
+            getDeletedCubeName={(id) => getCubeNameFromLogs(id, viewModal.date, viewModal.meal_time)}
           />
         );
       })()}

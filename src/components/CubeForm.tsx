@@ -25,32 +25,43 @@ export default function CubeForm({ cube }: Props) {
     const twoWeeksFromNow = new Date();
     twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
     const defaultExpiry = twoWeeksFromNow.toISOString().slice(0, 10);
+
+    // 복원 데이터 확인 (새 큐브 추가 시에만)
+    let restore: Partial<FormData> | null = null;
+    if (!cube && typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('cubridge_restore_cube');
+        if (raw) {
+          restore = JSON.parse(raw);
+          localStorage.removeItem('cubridge_restore_cube');
+        }
+      } catch { /* ignore */ }
+    }
+
     return {
-      name: cube?.name ?? '',
-      emoji: cube?.emoji ?? '🥦',
-      category: cube?.category ?? '채소',
-      color_tag: cube?.color_tag ?? COLOR_TAGS[0],
-      quantity: cube?.quantity ?? 0,
-      warning_threshold: cube?.warning_threshold ?? settings.defaultWarningThreshold,
-      danger_threshold: cube?.danger_threshold ?? settings.defaultDangerThreshold,
-      grams_per_cube: cube?.grams_per_cube ?? settings.defaultGramsPerCube,
-      expiry_date: cube?.expiry_date ?? defaultExpiry,
-      photo_url: cube?.photo_url ?? null,
-      notes: cube?.notes ?? null,
-      introduced_at: cube ? (cube.introduced_at ?? null) : new Date().toISOString(),
+      name: cube?.name ?? restore?.name ?? '',
+      emoji: cube?.emoji ?? restore?.emoji ?? '🥦',
+      category: cube?.category ?? restore?.category ?? '채소',
+      color_tag: cube?.color_tag ?? restore?.color_tag ?? COLOR_TAGS[0],
+      quantity: cube?.quantity ?? restore?.quantity ?? 0,
+      warning_threshold: cube?.warning_threshold ?? restore?.warning_threshold ?? settings.defaultWarningThreshold,
+      danger_threshold: cube?.danger_threshold ?? restore?.danger_threshold ?? settings.defaultDangerThreshold,
+      grams_per_cube: cube?.grams_per_cube ?? restore?.grams_per_cube ?? settings.defaultGramsPerCube,
+      expiry_date: cube?.expiry_date ?? restore?.expiry_date ?? defaultExpiry,
+      photo_url: cube?.photo_url ?? restore?.photo_url ?? null,
+      notes: cube?.notes ?? restore?.notes ?? null,
+      introduced_at: cube ? (cube.introduced_at ?? null) : (restore?.introduced_at ?? new Date().toISOString()),
     };
   });
 
   // 숫자 입력칸의 표시값을 문자열로 별도 관리 (빈칸 허용)
-  const [rawNums, setRawNums] = useState(() => {
-    const settings = getSettings();
-    return {
-      quantity: String(cube?.quantity ?? 0),
-      warning_threshold: String(cube?.warning_threshold ?? settings.defaultWarningThreshold),
-      danger_threshold: String(cube?.danger_threshold ?? settings.defaultDangerThreshold),
-      grams_per_cube: String(cube?.grams_per_cube ?? settings.defaultGramsPerCube),
-    };
-  });
+  // form state가 이미 복원 데이터를 포함하므로 직접 참조
+  const [rawNums, setRawNums] = useState(() => ({
+    quantity: String(form.quantity),
+    warning_threshold: String(form.warning_threshold),
+    danger_threshold: String(form.danger_threshold),
+    grams_per_cube: String(form.grams_per_cube),
+  }));
 
   function setNum(key: 'quantity' | 'warning_threshold' | 'danger_threshold' | 'grams_per_cube', raw: string) {
     setRawNums((prev) => ({ ...prev, [key]: raw }));

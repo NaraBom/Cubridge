@@ -44,6 +44,7 @@ export interface MealPlan {
   date: string; // 'YYYY-MM-DD'
   meal_time: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   cube_ids: string[];
+  cube_snapshots?: Record<string, { name: string; emoji: string; grams: number }>; // 삭제된 큐브 복원용 스냅샷
   custom_items: { name: string; grams: number }[]; // 수기 입력 항목
   logged: boolean; // 소비 기록에 추가되었는지
 }

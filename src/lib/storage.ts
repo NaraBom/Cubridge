@@ -144,6 +144,12 @@ export function deleteCube(id: string) {
   saveCubes(getCubes().filter((c) => c.id !== id));
 }
 
+export function restoreCube(cube: Cube) {
+  const cubes = getCubes();
+  if (cubes.some((c) => c.id === cube.id)) return;
+  saveCubes([...cubes, cube]);
+}
+
 export function addLog(log: Omit<ConsumptionLog, 'id'>): ConsumptionLog {
   const logs = getLogs();
   const newLog: ConsumptionLog = { ...log, id: crypto.randomUUID() };
@@ -229,7 +235,7 @@ export function saveMealPlans(plans: MealPlan[]) {
   localStorage.setItem(MEAL_PLANS_KEY, JSON.stringify(plans));
 }
 
-export function upsertMealPlan(date: string, meal_time: MealPlan['meal_time'], cube_ids: string[], custom_items: MealPlan['custom_items'] = []) {
+export function upsertMealPlan(date: string, meal_time: MealPlan['meal_time'], cube_ids: string[], custom_items: MealPlan['custom_items'] = [], cube_snapshots: MealPlan['cube_snapshots'] = {}) {
   const plans = getMealPlans();
   const idx = plans.findIndex((p) => p.date === date && p.meal_time === meal_time);
   if (cube_ids.length === 0 && custom_items.length === 0) {
@@ -240,9 +246,10 @@ export function upsertMealPlan(date: string, meal_time: MealPlan['meal_time'], c
     const existing = plans[idx];
     const prevIds = new Set(existing.cube_ids);
     const hasNewCube = cube_ids.some((id) => !prevIds.has(id));
-    plans[idx] = { ...existing, cube_ids, custom_items, logged: hasNewCube ? false : existing.logged };
+    const mergedSnapshots = { ...(existing.cube_snapshots ?? {}), ...cube_snapshots };
+    plans[idx] = { ...existing, cube_ids, cube_snapshots: mergedSnapshots, custom_items, logged: hasNewCube ? false : existing.logged };
   } else {
-    plans.push({ id: crypto.randomUUID(), date, meal_time, cube_ids, custom_items, logged: false });
+    plans.push({ id: crypto.randomUUID(), date, meal_time, cube_ids, cube_snapshots, custom_items, logged: false });
   }
   saveMealPlans(plans);
 }

@@ -3,7 +3,8 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useHolidays } from '@/hooks/useHolidays';
 import { Cube, ConsumptionLog, Reaction } from '@/types';
-import { getCubes, getLogs, saveLogs, addLog, deleteLog, deleteCube, updateLog } from '@/lib/storage';
+import { useRouter } from 'next/navigation';
+import { getCubes, getLogs, saveLogs, addLog, deleteLog, deleteCube, updateLog, getMealPlans, getSettings } from '@/lib/storage';
 import { Plus, Trash2 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import LogCalendar from '@/components/LogCalendar';
@@ -21,6 +22,7 @@ function toDateKey(date: Date) {
 }
 
 export default function LogsPage() {
+  const router = useRouter();
   const [cubes, setCubes] = useState<Cube[]>(() => getCubes());
   const [logs, setLogs] = useState<ConsumptionLog[]>(() => getLogs());
 
@@ -240,6 +242,32 @@ export default function LogsPage() {
     setDeleteTarget(null);
   }
 
+  function handleDeleteAndReAddCube() {
+    if (!deleteTarget) return;
+    const logDate = toDateKey(new Date(deleteTarget.logged_at));
+    const plans = getMealPlans();
+    const plan = plans.find((p) => p.date === logDate && p.meal_time === deleteTarget.meal_time);
+    const snapshot = plan?.cube_snapshots?.[deleteTarget.cube_id];
+    const settings = getSettings();
+    const restoreData = {
+      name: snapshot?.name ?? deleteTarget.cube_name,
+      emoji: snapshot?.emoji ?? '',
+      category: '기타',
+      color_tag: '#A0785A',
+      quantity: deleteTarget.quantity,
+      warning_threshold: settings.defaultWarningThreshold,
+      danger_threshold: settings.defaultDangerThreshold,
+      grams_per_cube: snapshot?.grams ?? settings.defaultGramsPerCube,
+      expiry_date: null,
+      photo_url: null,
+      notes: null,
+      introduced_at: deleteTarget.logged_at,
+    };
+    localStorage.setItem('cubridge_restore_cube', JSON.stringify(restoreData));
+    setDeleteTarget(null);
+    router.push('/cubes/new');
+  }
+
   function handleDeleteAll(restoreStock: boolean) {
     if (restoreStock) {
       logs.forEach((log) => deleteLog(log.id, true));
@@ -320,19 +348,22 @@ export default function LogsPage() {
         />
       )}
 
-      {deleteTarget && (
-        <ConfirmModal
-          title="소비 기록 삭제"
-          message={`"${deleteTarget.cube_name}" ${deleteTarget.quantity}개 기록을 삭제할까요?`}
-          extraLabel="재고도 복원하고 삭제"
-          confirmLabel="기록만 삭제"
-          cancelLabel="취소"
-          danger
-          onExtra={() => handleDelete(true)}
-          onConfirm={() => handleDelete(false)}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      )}
+      {deleteTarget && (() => {
+        const cubeExists = cubes.some((c) => c.id === deleteTarget.cube_id);
+        return (
+          <ConfirmModal
+            title="소비 기록 삭제"
+            message={`"${deleteTarget.cube_name}" ${deleteTarget.quantity}개 기록을 삭제할까요?`}
+            extraLabel={cubeExists ? "재고도 복원하고 삭제" : "삭제된 큐브 재추가"}
+            confirmLabel="기록만 삭제"
+            cancelLabel="취소"
+            danger
+            onExtra={cubeExists ? () => handleDelete(true) : handleDeleteAndReAddCube}
+            onConfirm={() => handleDelete(false)}
+            onCancel={() => setDeleteTarget(null)}
+          />
+        );
+      })()}
 
       {showDeleteAll && (
         <ConfirmModal
