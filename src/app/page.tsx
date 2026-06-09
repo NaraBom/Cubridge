@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Cube, getStockStatus, MEAL_TIMES } from '@/types';
+import { Cube, getStockStatus, MEAL_TIMES, REACTIONS } from '@/types';
 import { getCubes, getLogs, getSettings } from '@/lib/storage';
 import CubeRow from '@/components/CubeRow';
 import { AlertCircle, Box, Plus } from 'lucide-react';
@@ -11,6 +11,7 @@ export default function DashboardPage() {
   const [cubes, setCubes] = useState<Cube[]>(() => getCubes());
   const [logs] = useState(() => getLogs());
   const [expiryWarningDays] = useState(() => getSettings().expiryWarningDays);
+  const [cubeSortOrder] = useState(() => getSettings().cubeSortOrder);
 
   function refresh() {
     setCubes(getCubes());
@@ -19,27 +20,41 @@ export default function DashboardPage() {
   const warnCubes = cubes.filter((c) => getStockStatus(c.quantity, c.warning_threshold, c.danger_threshold) === 'warning');
   const dangerCubes = cubes.filter((c) => getStockStatus(c.quantity, c.warning_threshold, c.danger_threshold) === 'danger');
 
-  function sortByStatusThenExpiry(a: Cube, b: Cube) {
-    // 기한 없음은 맨 앞, 그 안에서 재고 상태 순
-    const statusOrder = { danger: 0, warning: 1, ok: 2 };
-    if (!a.expiry_date && !b.expiry_date) {
-      return statusOrder[getStockStatus(a.quantity, a.warning_threshold, a.danger_threshold)]
-           - statusOrder[getStockStatus(b.quantity, b.warning_threshold, b.danger_threshold)];
+  function sortCubes(a: Cube, b: Cube): number {
+    const byName = a.name.localeCompare(b.name, 'ko');
+    if (cubeSortOrder === 'name') return byName;
+    if (cubeSortOrder === 'danger') {
+      const rank = { danger: 0, warning: 1, ok: 2 };
+      const diff = rank[getStockStatus(a.quantity, a.warning_threshold, a.danger_threshold)]
+                 - rank[getStockStatus(b.quantity, b.warning_threshold, b.danger_threshold)];
+      return diff !== 0 ? diff : byName;
     }
-    if (!a.expiry_date) return -1;
-    if (!b.expiry_date) return 1;
-    const statusDiff = statusOrder[getStockStatus(a.quantity, a.warning_threshold, a.danger_threshold)]
-                     - statusOrder[getStockStatus(b.quantity, b.warning_threshold, b.danger_threshold)];
-    if (statusDiff !== 0) return statusDiff;
-    return a.expiry_date.localeCompare(b.expiry_date);
+    // expiry: 기한 없음 맨 위, 임박순, 동일 날짜는 이름순
+    const aHas = !!a.expiry_date;
+    const bHas = !!b.expiry_date;
+    if (!aHas && !bHas) return byName;
+    if (!aHas) return -1;
+    if (!bHas) return 1;
+    const dateDiff = a.expiry_date!.localeCompare(b.expiry_date!);
+    return dateDiff !== 0 ? dateDiff : byName;
   }
 
-  const alertCubes = [...dangerCubes, ...warnCubes].sort(sortByStatusThenExpiry);
+  const alertCubes = [...dangerCubes, ...warnCubes].sort(sortCubes);
 
   const today = new Date().toDateString();
   const todayLogs = logs.filter((l) => new Date(l.logged_at).toDateString() === today);
   const todayTotal = todayLogs.reduce((sum, l) => sum + l.quantity, 0);
-  const recentLogs = logs.slice(0, 5);
+  // 가장 최근 식사 세션 (아침/점심/저녁 중 마지막 1개)
+  const mealLogs = logs.filter((l) => l.meal_time !== 'snack');
+  const lastMeal = (() => {
+    if (mealLogs.length === 0) return null;
+    const latest = mealLogs.reduce((a, b) =>
+      new Date(a.logged_at) > new Date(b.logged_at) ? a : b
+    );
+    const date = latest.logged_at.slice(0, 10);
+    const mealTime = latest.meal_time;
+    return { mealTime, date, items: mealLogs.filter((l) => l.logged_at.startsWith(date) && l.meal_time === mealTime) };
+  })();
 
   // 카테고리별 큐브 수 (전체 큐브 카드용)
   const categoryCount = cubes.reduce<Record<string, number>>((acc, c) => {
@@ -97,34 +112,43 @@ export default function DashboardPage() {
         </div>
         <div className="bg-white rounded-2xl border border-[var(--border)] divide-y divide-gray-100 max-h-[480px] overflow-y-auto">
           {[...cubes]
-            .sort(sortByStatusThenExpiry)
+            .sort(sortCubes)
             .map((cube) => (
               <CubeRow key={cube.id} cube={cube} expiryWarningDays={expiryWarningDays} onUpdate={refresh} onDelete={refresh} />
             ))}
         </div>
       </section>
 
-      {recentLogs.length > 0 && (
+      {lastMeal && (
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-gray-700">최근 소비 기록</h2>
             <Link href="/logs" className="text-sm text-[var(--primary)] hover:underline">전체 보기</Link>
           </div>
-          <div className="bg-white rounded-2xl border border-[var(--border)] divide-y divide-gray-100">
-            {recentLogs.map((log) => (
-              <div key={log.id} className="flex items-center justify-between px-4 py-3">
-                <div>
-                  <span className="font-medium text-gray-800">{log.cube_name}</span>
-                  <span className="ml-2 text-xs text-gray-400">{MEAL_TIMES[log.meal_time]}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-gray-700">{log.quantity}개</span>
-                  <span className="text-xs text-gray-400">
-                    {new Date(log.logged_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
-                  </span>
-                </div>
-              </div>
-            ))}
+          <div className="bg-white rounded-2xl border border-[var(--border)] overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2 bg-gray-50/60 border-b border-gray-100">
+              <span className="text-xs font-semibold text-gray-500">
+                {new Date(lastMeal.date + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })} - {MEAL_TIMES[lastMeal.mealTime]}
+              </span>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {lastMeal.items.map((log) => {
+                const grams = log.grams_override ?? cubes.find((c) => c.id === log.cube_id)?.grams_per_cube;
+                const reaction = log.reaction ? REACTIONS[log.reaction] : null;
+                return (
+                  <div key={log.id} className="flex items-center justify-between px-4 py-2.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-medium text-gray-800 truncate">{log.cube_name}</span>
+                      {grams != null && <span className="text-xs text-gray-400 flex-shrink-0">{grams}g</span>}
+                      {reaction && (
+                        <span className={`text-xs flex-shrink-0 ${reaction.color}`}>{reaction.emoji} {reaction.label}</span>
+                      )}
+                    </div>
+                    <span className="text-sm font-semibold text-gray-700 flex-shrink-0 ml-3">{log.quantity}개</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
       )}

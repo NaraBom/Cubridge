@@ -25,7 +25,9 @@ export default function CubesPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showDeleteZero, setShowDeleteZero] = useState(false);
   const [showDeleteAll, setShowDeleteAll] = useState(false);
-  const expiryWarningDays = getSettings().expiryWarningDays;
+  const settings = getSettings();
+  const expiryWarningDays = settings.expiryWarningDays;
+  const cubeSortOrder = settings.cubeSortOrder;
 
   function refresh() {
     setCubes(getCubes());
@@ -178,12 +180,34 @@ export default function CubesPage() {
   }), [cubes, search, statusFilter]);
 
   // 카테고리별로 그룹화 (큐브가 있는 카테고리만)
-  const groups = useMemo(() => CATEGORIES
-    .map((cat) => ({
-      cat,
-      items: filtered.filter((c) => c.category === cat).sort((a, b) => a.name.localeCompare(b.name, 'ko')),
-    }))
-    .filter(({ items }) => items.length > 0), [filtered]);
+  const groups = useMemo(() => {
+    function sortItems(a: Cube, b: Cube): number {
+      const byName = a.name.localeCompare(b.name, 'ko');
+      if (cubeSortOrder === 'name') return byName;
+      if (cubeSortOrder === 'danger') {
+        const aStatus = getStockStatus(a.quantity, a.warning_threshold, a.danger_threshold);
+        const bStatus = getStockStatus(b.quantity, b.warning_threshold, b.danger_threshold);
+        const rank = { danger: 0, warning: 1, ok: 2 };
+        const diff = rank[aStatus] - rank[bStatus];
+        return diff !== 0 ? diff : byName;
+      }
+      // expiry: 기한 없음 맨 위, 이후 임박순, 동일 날짜는 이름순
+      const aHas = !!a.expiry_date;
+      const bHas = !!b.expiry_date;
+      if (!aHas && !bHas) return byName;
+      if (!aHas) return -1;
+      if (!bHas) return 1;
+      const dateDiff = a.expiry_date!.localeCompare(b.expiry_date!);
+      return dateDiff !== 0 ? dateDiff : byName;
+    }
+
+    return CATEGORIES
+      .map((cat) => ({
+        cat,
+        items: filtered.filter((c) => c.category === cat).sort(sortItems),
+      }))
+      .filter(({ items }) => items.length > 0);
+  }, [filtered, cubeSortOrder]);
 
   return (
     <div className="p-6 max-w-5xl mx-auto">

@@ -31,6 +31,8 @@ export function saveBabyProfile(profile: BabyProfile) {
   localStorage.setItem(BABY_KEY, JSON.stringify(profile));
 }
 
+export type CubeSortOrder = 'danger' | 'expiry' | 'name';
+
 export interface AppSettings {
   expiryWarningDays: number;       // 유통기한 임박 기준일
   defaultWarningThreshold: number; // 새 큐브 기본 주의 기준
@@ -38,6 +40,7 @@ export interface AppSettings {
   defaultGramsPerCube: number;     // 새 큐브 기본 용량
   pushNotification: boolean;       // 브라우저 푸시 알림
   weekStartsOnSunday: boolean;     // 주 시작 요일 (true=일요일, false=월요일)
+  cubeSortOrder: CubeSortOrder;    // 큐브 목록 정렬 기준
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -47,6 +50,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultGramsPerCube: 20,
   pushNotification: false,
   weekStartsOnSunday: false,
+  cubeSortOrder: 'expiry',
 };
 
 export function getSettings(): AppSettings {

@@ -95,6 +95,7 @@ export default function LogList({ selectedLogs, selectedDateLabel, cubes, onAddC
                   <span className="w-2 h-2 rounded-full bg-[var(--primary)] flex-shrink-0" />
                   <span className="font-semibold text-gray-800">{log.cube_name}</span>
                   <span className="text-xs text-gray-400">{cubes.find((c) => c.id === log.cube_id)?.grams_per_cube ?? ''}g</span>
+                  <ReactionBadge log={log} onChange={(r) => onReactionChange(log, r)} />
                   {log.notes && (
                     <span className="text-xs text-gray-400 truncate max-w-32">{log.notes}</span>
                   )}
@@ -114,9 +115,6 @@ export default function LogList({ selectedLogs, selectedDateLabel, cubes, onAddC
                     <Trash2 size={14} />
                   </button>
                 </div>
-              </div>
-              <div className="flex justify-end mt-1.5">
-                <ReactionBadge log={log} onChange={(r) => onReactionChange(log, r)} />
               </div>
             </div>
           ))}

@@ -8,14 +8,54 @@ function getAgeMonths(birthDate: string | null): string | null {
   if (!birthDate) return null;
   const birth = new Date(birthDate);
   const now = new Date();
-  const months =
-    (now.getFullYear() - birth.getFullYear()) * 12 +
-    (now.getMonth() - birth.getMonth());
-  if (months < 0) return null;
-  if (months < 24) return `${months}개월`;
-  const years = Math.floor(months / 12);
-  const rem = months % 12;
-  return rem === 0 ? `${years}세` : `${years}세 ${rem}개월`;
+  if (now < birth) return null;
+
+  // D+ 계산 (태어난 날 = D+1)
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const totalDays = Math.floor((now.getTime() - birth.getTime()) / msPerDay) + 1;
+
+  // 개월+일 계산
+  let years = now.getFullYear() - birth.getFullYear();
+  let months = now.getMonth() - birth.getMonth();
+  let days = now.getDate() - birth.getDate();
+
+  if (days < 0) {
+    months -= 1;
+    const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  const d = days + 1; // 태어난 날을 1일로 산정
+  const totalMonths = years * 12 + months;
+
+  let detail: string;
+  if (totalMonths < 24) {
+    detail = `${totalMonths}개월 ${d}일`;
+  } else {
+    const remMonths = months;
+    detail = remMonths === 0 ? `${years}세 ${d}일` : `${years}세 ${remMonths}개월 ${d}일`;
+  }
+
+  return `D+${totalDays} (${detail})`;
+}
+
+function getBabyStage(birthDate: string | null): string | null {
+  if (!birthDate) return null;
+  const birth = new Date(birthDate);
+  const now = new Date();
+  if (now < birth) return null;
+  const totalDays = Math.floor((now.getTime() - birth.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  if (totalDays <= 209) return '초기';
+  if (totalDays <= 245) return '중기 1단계';
+  if (totalDays <= 269) return '중기 2단계';
+  if (totalDays <= 299) return '후기 1단계';
+  if (totalDays <= 329) return '후기 2단계';
+  if (totalDays <= 359) return '후기 3단계';
+  return '완료기';
 }
 
 function Avatar({ photoUrl, emoji, size }: { photoUrl: string | null; emoji: string; size: 'sm' | 'lg' }) {
@@ -69,6 +109,7 @@ export default function BabyCard() {
   }
 
   const age = getAgeMonths(profile.birthDate);
+  const stage = getBabyStage(profile.birthDate);
   const isEmpty = !profile.name && !profile.birthDate && !profile.memo;
 
   if (editing) {
@@ -127,7 +168,7 @@ export default function BabyCard() {
         {/* 메모 */}
         <input
           type="text"
-          placeholder="메모 (이유식 단계 등)"
+          placeholder="메모"
           maxLength={30}
           value={draft.memo}
           onChange={(e) => setDraft((d) => ({ ...d, memo: e.target.value }))}
@@ -174,6 +215,9 @@ export default function BabyCard() {
           )}
           {age && (
             <p className="text-xs text-[var(--primary)] font-medium leading-tight mt-1">{age}</p>
+          )}
+          {stage && (
+            <p className="text-xs text-orange-400 font-medium leading-tight mt-1">{stage}</p>
           )}
           {profile.memo && (
             <p className="text-xs text-gray-400 leading-tight mt-1.5">{profile.memo}</p>

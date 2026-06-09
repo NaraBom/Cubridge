@@ -1,8 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { AppSettings, getSettings, saveSettings, clearAllData, getCubes, getLogs, getSampleCubes, addCube, saveCubes, saveLogs, saveBabyProfile, getBabyProfile } from '@/lib/storage';
-import { Bell, CalendarClock, Package, RotateCcw, Trash2, ChevronRight, Check, Upload, CalendarDays } from 'lucide-react';
+import { AppSettings, CubeSortOrder, getSettings, saveSettings, clearAllData, getCubes, getLogs, getSampleCubes, addCube, saveCubes, saveLogs, saveBabyProfile, getBabyProfile } from '@/lib/storage';
+import { Bell, CalendarClock, Package, RotateCcw, Trash2, ChevronRight, Check, Upload, CalendarDays, ArrowUpDown } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 
 type ConfirmType = 'reset' | 'clearAll' | 'import' | null;
@@ -230,6 +230,27 @@ export default function SettingsPage() {
               className="w-16 text-center border border-[var(--border)] rounded-lg py-1.5 text-sm focus:outline-none focus:border-[var(--primary)]"
             />
             <span className="text-sm text-gray-500">g</span>
+          </div>
+        </SettingRow>
+      </Section>
+
+      {/* 큐브 정렬 */}
+      <Section icon={<ArrowUpDown size={18} />} title="큐브 정렬">
+        <SettingRow label="정렬 기준" description="큐브 목록에서 카테고리 내 정렬 방식">
+          <div className="flex rounded-xl border border-[var(--border)] overflow-hidden text-sm">
+            {([
+              { value: 'danger', label: '재고 부족' },
+              { value: 'expiry', label: '유통기한' },
+              { value: 'name',   label: '이름' },
+            ] as { value: CubeSortOrder; label: string }[]).map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => updateSetting('cubeSortOrder', value)}
+                className={`px-3 py-1.5 transition ${settings.cubeSortOrder === value ? 'bg-[var(--primary)] text-white font-semibold' : 'text-gray-500 hover:bg-gray-50'}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </SettingRow>
       </Section>
