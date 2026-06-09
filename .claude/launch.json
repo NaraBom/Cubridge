@@ -1,1 +1,1 @@
-﻿{"version":"0.0.1","configurations":[{"name":"babystock","runtimeExecutable":"npm","runtimeArgs":["run","dev"],"port":3000,"autoPort":false}]}
+{"version":"0.0.1","configurations":[{"name":"cubridge","runtimeExecutable":"npm","runtimeArgs":["run","dev"],"cwd":"C:\\Users\\nara2\\OneDrive\\바탕 화면\\Cubridge\\Cubridge","port":3000,"autoPort":true}]}

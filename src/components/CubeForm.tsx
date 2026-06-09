@@ -41,6 +41,23 @@ export default function CubeForm({ cube }: Props) {
     };
   });
 
+  // 숫자 입력칸의 표시값을 문자열로 별도 관리 (빈칸 허용)
+  const [rawNums, setRawNums] = useState(() => {
+    const settings = getSettings();
+    return {
+      quantity: String(cube?.quantity ?? 0),
+      warning_threshold: String(cube?.warning_threshold ?? settings.defaultWarningThreshold),
+      danger_threshold: String(cube?.danger_threshold ?? settings.defaultDangerThreshold),
+      grams_per_cube: String(cube?.grams_per_cube ?? settings.defaultGramsPerCube),
+    };
+  });
+
+  function setNum(key: 'quantity' | 'warning_threshold' | 'danger_threshold' | 'grams_per_cube', raw: string) {
+    setRawNums((prev) => ({ ...prev, [key]: raw }));
+    const num = raw === '' ? 0 : Number(raw);
+    if (!isNaN(num)) set(key, num);
+  }
+
   function set<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
@@ -87,6 +104,7 @@ export default function CubeForm({ cube }: Props) {
         <Field label="재료명 *">
           <input
             required
+            autoFocus
             value={form.name}
             onFocus={(e) => e.target.select()}
             onChange={(e) => set('name', e.target.value)}
@@ -159,13 +177,13 @@ export default function CubeForm({ cube }: Props) {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Field label="현재 수량 (개)">
-            <input type="number" min={0} value={form.quantity} onFocus={(e) => e.target.select()} onChange={(e) => set('quantity', Number(e.target.value))} className="input" />
+            <input type="number" min={0} value={rawNums.quantity} onFocus={(e) => e.target.select()} onChange={(e) => setNum('quantity', e.target.value)} className="input" />
           </Field>
           <Field label="주의 기준 (개)">
-            <input type="number" min={0} value={form.warning_threshold} onFocus={(e) => e.target.select()} onChange={(e) => set('warning_threshold', Number(e.target.value))} className={`input ${thresholdError ? 'border-red-400' : ''}`} />
+            <input type="number" min={0} value={rawNums.warning_threshold} onFocus={(e) => e.target.select()} onChange={(e) => setNum('warning_threshold', e.target.value)} className={`input ${thresholdError ? 'border-red-400' : ''}`} />
           </Field>
           <Field label="부족 기준 (개)">
-            <input type="number" min={0} value={form.danger_threshold} onFocus={(e) => e.target.select()} onChange={(e) => set('danger_threshold', Number(e.target.value))} className={`input ${thresholdError ? 'border-red-400' : ''}`} />
+            <input type="number" min={0} value={rawNums.danger_threshold} onFocus={(e) => e.target.select()} onChange={(e) => setNum('danger_threshold', e.target.value)} className={`input ${thresholdError ? 'border-red-400' : ''}`} />
           </Field>
         </div>
         {thresholdError && (
@@ -173,7 +191,7 @@ export default function CubeForm({ cube }: Props) {
         )}
 
         <Field label="1큐브당 용량 (g)">
-          <input type="number" min={1} value={form.grams_per_cube} onFocus={(e) => e.target.select()} onChange={(e) => set('grams_per_cube', Number(e.target.value))} className="input" />
+          <input type="number" min={1} value={rawNums.grams_per_cube} onFocus={(e) => e.target.select()} onChange={(e) => setNum('grams_per_cube', e.target.value)} className="input" />
         </Field>
 
         <Field label="유통기한 (선택)">
