@@ -4,20 +4,26 @@ import { useRef, useState } from 'react';
 import { Pencil, Check, X, Camera } from 'lucide-react';
 import { BabyProfile, getBabyProfile, saveBabyProfile } from '@/lib/storage';
 
+function parseDateLocal(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d); // 로컬 자정 (UTC 오차 방지)
+}
+
 function getAgeMonths(birthDate: string | null): string | null {
   if (!birthDate) return null;
-  const birth = new Date(birthDate);
+  const birth = parseDateLocal(birthDate);
   const now = new Date();
-  if (now < birth) return null;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (today < birth) return null;
 
-  // D+ 계산 (태어난 날 = D+1)
+  // D+ 계산 (태어난 날 = D+1), 로컬 자정 기준
   const msPerDay = 1000 * 60 * 60 * 24;
-  const totalDays = Math.floor((now.getTime() - birth.getTime()) / msPerDay) + 1;
+  const totalDays = Math.floor((today.getTime() - birth.getTime()) / msPerDay) + 1;
 
   // 개월+일 계산
-  let years = now.getFullYear() - birth.getFullYear();
-  let months = now.getMonth() - birth.getMonth();
-  let days = now.getDate() - birth.getDate();
+  let years = today.getFullYear() - birth.getFullYear();
+  let months = today.getMonth() - birth.getMonth();
+  let days = today.getDate() - birth.getDate();
 
   if (days < 0) {
     months -= 1;
@@ -45,10 +51,11 @@ function getAgeMonths(birthDate: string | null): string | null {
 
 function getBabyStage(birthDate: string | null): string | null {
   if (!birthDate) return null;
-  const birth = new Date(birthDate);
+  const birth = parseDateLocal(birthDate);
   const now = new Date();
-  if (now < birth) return null;
-  const totalDays = Math.floor((now.getTime() - birth.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (today < birth) return null;
+  const totalDays = Math.floor((today.getTime() - birth.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   if (totalDays <= 209) return '초기';
   if (totalDays <= 245) return '중기 1단계';
   if (totalDays <= 269) return '중기 2단계';

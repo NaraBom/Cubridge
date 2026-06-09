@@ -4,18 +4,24 @@ import { useState } from 'react';
 import { getBabyProfile, BabyProfile } from '@/lib/storage';
 import BabyCard from '@/components/BabyCard';
 
+function parseDateLocal(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function getAgeMonths(birthDate: string | null): string | null {
   if (!birthDate) return null;
-  const birth = new Date(birthDate);
+  const birth = parseDateLocal(birthDate);
   const now = new Date();
-  if (now < birth) return null;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (today < birth) return null;
 
   const msPerDay = 1000 * 60 * 60 * 24;
-  const totalDays = Math.floor((now.getTime() - birth.getTime()) / msPerDay) + 1;
+  const totalDays = Math.floor((today.getTime() - birth.getTime()) / msPerDay) + 1;
 
-  let years = now.getFullYear() - birth.getFullYear();
-  let months = now.getMonth() - birth.getMonth();
-  let days = now.getDate() - birth.getDate();
+  let years = today.getFullYear() - birth.getFullYear();
+  let months = today.getMonth() - birth.getMonth();
+  let days = today.getDate() - birth.getDate();
 
   if (days < 0) {
     months -= 1;
